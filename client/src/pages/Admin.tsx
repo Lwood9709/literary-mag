@@ -1,6 +1,7 @@
 import { useEditor, EditorContent } from '@tiptap/react'
+import type { Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { useEffect, useState } from 'react'
+import { useEffect, useReducer, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import type { Piece, PieceType } from '../types'
 import { api } from '../api'
@@ -14,6 +15,45 @@ const EMPTY: Omit<Piece, 'id' | 'published_at' | 'is_ai_generated'> = {
   tags: '',
 }
 
+function Toolbar({ editor }: { editor: Editor | null }) {
+  if (!editor) return null
+
+  const cls = (active: boolean) =>
+    `px-2.5 py-1 rounded text-sm leading-none transition-colors ${
+      active ? 'bg-sage-light text-forest' : 'text-muted hover:text-forest hover:bg-stone-100'
+    }`
+
+  const divider = <span className="mx-1 h-5 w-px bg-sage/20" />
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 border-b border-sage/20 bg-oat/60 px-2 py-1.5">
+      <button type="button" className={cls(editor.isActive('heading', { level: 2 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+        H2
+      </button>
+      <button type="button" className={cls(editor.isActive('heading', { level: 3 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+        H3
+      </button>
+      {divider}
+      <button type="button" className={cls(editor.isActive('bold'))} onClick={() => editor.chain().focus().toggleBold().run()}>
+        <span className="font-bold">B</span>
+      </button>
+      <button type="button" className={cls(editor.isActive('italic'))} onClick={() => editor.chain().focus().toggleItalic().run()}>
+        <span className="font-serif italic">I</span>
+      </button>
+      {divider}
+      <button type="button" className={cls(editor.isActive('blockquote'))} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
+        ❝
+      </button>
+      <button type="button" className={cls(editor.isActive('bulletList'))} onClick={() => editor.chain().focus().toggleBulletList().run()}>
+        • List
+      </button>
+      <button type="button" className={cls(editor.isActive('orderedList'))} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
+        1. List
+      </button>
+    </div>
+  )
+}
+
 export default function Admin() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -22,6 +62,7 @@ export default function Admin() {
   const [fields, setFields] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [pieces, setPieces] = useState<Piece[]>([])
+  const [, forceUpdate] = useReducer((x: number) => x + 1, 0)
 
   const editor = useEditor({
     extensions: [StarterKit],
@@ -30,6 +71,15 @@ export default function Admin() {
       setFields((f) => ({ ...f, body: editor.getHTML() }))
     },
   })
+
+  // Keep toolbar active-states in sync with cursor/selection changes
+  useEffect(() => {
+    if (!editor) return
+    editor.on('transaction', forceUpdate)
+    return () => {
+      editor.off('transaction', forceUpdate)
+    }
+  }, [editor])
 
   useEffect(() => {
     fetch(api('/api/pieces'))
@@ -78,21 +128,18 @@ export default function Admin() {
   }
 
   return (
-    <main className="max-w-3xl mx-auto px-6 py-12">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-serif">Admin</h1>
-        <Link to="/" className="text-xs text-stone-400 hover:text-stone-700">← Home</Link>
+    <main className="max-w-3xl mx-auto px-6 py-16">
+      <div className="flex items-center justify-between mb-10">
+        <h1 className="text-3xl font-serif text-forest">Admin</h1>
+        <Link to="/" className="text-xs text-muted hover:text-sage">← Home</Link>
       </div>
 
       <div className="grid grid-cols-3 gap-8">
         <aside className="col-span-1">
-          <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wide mb-3">Pieces</h2>
+          <h2 className="text-xs font-semibold text-muted uppercase tracking-wide mb-3">Pieces</h2>
           <ul className="space-y-1">
             <li>
-              <Link
-                to="/admin"
-                className="text-sm text-stone-500 hover:text-stone-800 block py-1"
-              >
+              <Link to="/admin" className="text-sm text-sage hover:text-sage-dark block py-1">
                 + New piece
               </Link>
             </li>
@@ -100,13 +147,13 @@ export default function Admin() {
               <li key={p.id} className="flex items-center justify-between group">
                 <Link
                   to={`/admin?edit=${p.id}`}
-                  className={`text-sm py-1 flex-1 truncate ${editId === String(p.id) ? 'text-stone-900 font-medium' : 'text-stone-500 hover:text-stone-800'}`}
+                  className={`text-sm py-1 flex-1 truncate ${editId === String(p.id) ? 'text-forest font-medium' : 'text-forest-soft hover:text-forest'}`}
                 >
                   {p.title}
                 </Link>
                 <button
                   onClick={() => deletePiece(p.id)}
-                  className="text-xs text-stone-300 hover:text-red-400 ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="text-xs text-stone-300 hover:text-blush-dark ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   ✕
                 </button>
@@ -115,13 +162,13 @@ export default function Admin() {
           </ul>
         </aside>
 
-        <section className="col-span-2 space-y-4">
+        <section className="col-span-2 space-y-5">
           <input
             type="text"
             placeholder="Title"
             value={fields.title}
             onChange={(e) => setFields((f) => ({ ...f, title: e.target.value }))}
-            className="w-full text-2xl font-serif border-b border-stone-200 py-2 outline-none focus:border-stone-500 bg-transparent"
+            className="w-full text-2xl font-serif text-forest border-b border-sage/30 py-2 outline-none focus:border-sage bg-transparent placeholder:text-muted/50"
           />
 
           <div className="flex gap-2">
@@ -129,10 +176,10 @@ export default function Admin() {
               <button
                 key={t}
                 onClick={() => setFields((f) => ({ ...f, type: t }))}
-                className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                className={`px-4 py-1.5 rounded-full text-xs tracking-wide border transition-colors ${
                   fields.type === t
-                    ? 'bg-stone-800 text-white border-stone-800'
-                    : 'border-stone-300 text-stone-600 hover:border-stone-500'
+                    ? 'bg-sage text-white border-sage'
+                    : 'border-sage/40 text-forest-soft hover:bg-sage-light hover:border-sage'
                 }`}
               >
                 {t}
@@ -140,8 +187,11 @@ export default function Admin() {
             ))}
           </div>
 
-          <div className="border border-stone-200 rounded min-h-48 p-3 prose prose-stone max-w-none font-serif [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-40">
-            <EditorContent editor={editor} />
+          <div className="rounded-lg border border-sage/30 bg-white/50 overflow-hidden transition-colors focus-within:border-sage">
+            <Toolbar editor={editor} />
+            <div className="prose prose-botanical max-w-none font-serif p-4 [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-44">
+              <EditorContent editor={editor} />
+            </div>
           </div>
 
           <input
@@ -149,16 +199,16 @@ export default function Admin() {
             placeholder="Tags (comma separated)"
             value={fields.tags}
             onChange={(e) => setFields((f) => ({ ...f, tags: e.target.value }))}
-            className="w-full text-sm border-b border-stone-200 py-2 outline-none focus:border-stone-500 bg-transparent text-stone-600"
+            className="w-full text-sm border-b border-sage/30 py-2 outline-none focus:border-sage bg-transparent text-forest-soft placeholder:text-muted/50"
           />
 
           <div className="flex justify-end">
             <button
               onClick={save}
               disabled={saving || !fields.title || !fields.body}
-              className="px-4 py-2 bg-stone-800 text-white text-sm rounded hover:bg-stone-700 disabled:opacity-40 transition-colors"
+              className="px-5 py-2 bg-sage text-white text-sm rounded-full hover:bg-sage-dark disabled:opacity-40 transition-colors"
             >
-              {saving ? 'Saving...' : editId ? 'Update' : 'Publish'}
+              {saving ? 'Saving…' : editId ? 'Update' : 'Publish'}
             </button>
           </div>
         </section>

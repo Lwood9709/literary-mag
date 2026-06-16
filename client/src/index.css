@@ -2,8 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --sage: #6b8f71;
+  --blush: #d8a7a1;
+}
+
 body {
   margin: 0;
-  background: #fafaf9;
-  color: #1c1917;
+  background: #f7f7f4;
+  color: #2f3a32;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Slim botanical accent bar across the top of every page */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--sage), var(--blush));
+  z-index: 50;
+}
+
+::selection {
+  background: #e7efe7;
+}
+
+/* Botanical palette for @tailwindcss/typography (.prose) */
+.prose-botanical {
+  --tw-prose-body: #4a564c;
+  --tw-prose-headings: #2f3a32;
+  --tw-prose-links: #6b8f71;
+  --tw-prose-bold: #2f3a32;
+  --tw-prose-quotes: #4a564c;
+  --tw-prose-quote-borders: #6b8f71;
+  --tw-prose-bullets: #6b8f71;
+  --tw-prose-counters: #6b8f71;
+  --tw-prose-hr: #e7efe7;
+}
+
+/* TipTap editor surface */
+.ProseMirror {
+  outline: none;
+}
+.ProseMirror:focus {
+  outline: none;
 }

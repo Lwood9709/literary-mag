@@ -20,38 +20,49 @@ export default function PiecePage() {
       .finally(() => setLoading(false))
   }, [id, navigate])
 
-  if (loading) return <div className="max-w-2xl mx-auto px-6 py-12 text-stone-400 text-sm">Loading...</div>
+  if (loading)
+    return <div className="max-w-2xl mx-auto px-6 py-16 text-muted text-sm">Loading…</div>
   if (!piece) return null
 
   return (
-    <main className="max-w-2xl mx-auto px-6 py-12">
-      <Link to="/" className="text-xs text-stone-400 hover:text-stone-700 mb-8 block">← Back</Link>
+    <main className="max-w-2xl mx-auto px-6 py-16">
+      <Link to="/" className="inline-flex items-center gap-1 text-sm text-sage hover:text-sage-dark mb-10">
+        ← Back
+      </Link>
 
-      <h1 className="text-4xl font-serif mb-3">{piece.title}</h1>
+      <h1 className="text-4xl md:text-5xl font-serif text-forest leading-tight mb-4">{piece.title}</h1>
 
-      <div className="flex gap-3 text-xs text-stone-400 mb-1">
-        <span>{piece.type}</span>
-        {piece.is_ai_generated === 1 && <span className="italic">AI generated</span>}
+      <div className="flex items-center gap-3 text-xs text-muted mb-2">
+        <span className="uppercase tracking-wide">{piece.type}</span>
+        {piece.is_ai_generated === 1 && (
+          <span className="text-[10px] uppercase tracking-wide text-blush-dark bg-blush-light px-1.5 py-0.5 rounded">
+            AI
+          </span>
+        )}
         <span>{new Date(piece.published_at).toLocaleDateString()}</span>
       </div>
 
       {piece.tags && (
-        <div className="flex gap-1 mb-8 flex-wrap">
+        <div className="flex gap-1.5 mb-10 flex-wrap">
           {piece.tags.split(',').filter(Boolean).map((tag) => (
-            <span key={tag.trim()} className="text-xs text-stone-400 bg-stone-50 px-2 py-0.5 rounded">
+            <span
+              key={tag.trim()}
+              className="text-xs text-sage-dark bg-sage-light px-2 py-0.5 rounded-full"
+            >
               {tag.trim()}
             </span>
           ))}
         </div>
       )}
 
-      <div
-        className="prose prose-stone max-w-none font-serif text-lg leading-relaxed"
+      <article
+        className="prose prose-botanical max-w-none font-serif text-lg leading-relaxed"
         dangerouslySetInnerHTML={{ __html: piece.body }}
       />
 
-      <div className="mt-12 pt-6 border-t border-stone-100">
-        <Link to={`/admin?edit=${piece.id}`} className="text-xs text-stone-400 hover:text-stone-700">
+      <div className="mt-14 flex flex-col items-center gap-6">
+        <span className="text-sage text-2xl" aria-hidden>❦</span>
+        <Link to={`/admin?edit=${piece.id}`} className="text-xs text-muted hover:text-sage">
           Edit this piece
         </Link>
       </div>

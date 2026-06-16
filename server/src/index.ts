@@ -5,7 +5,11 @@ import pieces from './routes/pieces.js'
 
 const app = new Hono()
 
-app.use('/api/*', cors())
+app.use('/api/*', cors({
+  origin: ['https://literary-mag.vercel.app'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowHeaders: ['Content-Type'],
+}))
 app.route('/api/pieces', pieces)
 
 const port = Number(process.env.PORT) || 3000

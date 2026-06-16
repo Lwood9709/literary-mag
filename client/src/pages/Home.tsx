@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import type { Piece, PieceType } from '../types'
+import { api } from '../api'
 
 const TYPES: PieceType[] = ['poem', 'prose', 'essay', 'story']
 
@@ -13,7 +14,7 @@ export default function Home() {
   useEffect(() => {
     setLoading(true)
     const params = activeType ? `?type=${activeType}` : ''
-    fetch(`/api/pieces${params}`)
+    fetch(api(`/api/pieces${params}`))
       .then((r) => r.json())
       .then((data: Piece[]) => setPieces(data))
       .finally(() => setLoading(false))

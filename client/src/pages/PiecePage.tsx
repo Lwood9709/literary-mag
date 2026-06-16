@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { Piece } from '../types'
+import { api } from '../api'
 
 export default function PiecePage() {
   const { id } = useParams<{ id: string }>()
@@ -9,7 +10,7 @@ export default function PiecePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`/api/pieces/${id}`)
+    fetch(api(`/api/pieces/${id}`))
       .then((r) => {
         if (!r.ok) throw new Error('Not found')
         return r.json()

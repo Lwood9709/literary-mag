@@ -3,6 +3,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import type { Piece, PieceType } from '../types'
+import { api } from '../api'
 
 const TYPES: PieceType[] = ['poem', 'prose', 'essay', 'story']
 
@@ -31,7 +32,7 @@ export default function Admin() {
   })
 
   useEffect(() => {
-    fetch('/api/pieces')
+    fetch(api('/api/pieces'))
       .then((r) => r.json())
       .then((data: Piece[]) => setPieces(data))
   }, [])
@@ -42,7 +43,7 @@ export default function Admin() {
       editor?.commands.setContent('')
       return
     }
-    fetch(`/api/pieces/${editId}`)
+    fetch(api(`/api/pieces/${editId}`))
       .then((r) => r.json())
       .then((p: Piece) => {
         setFields({ title: p.title, body: p.body, type: p.type, tags: p.tags })
@@ -53,7 +54,7 @@ export default function Admin() {
   async function save() {
     setSaving(true)
     const method = editId ? 'PUT' : 'POST'
-    const url = editId ? `/api/pieces/${editId}` : '/api/pieces'
+    const url = editId ? api(`/api/pieces/${editId}`) : api('/api/pieces')
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
@@ -67,7 +68,7 @@ export default function Admin() {
   }
 
   async function deletePiece(id: number) {
-    await fetch(`/api/pieces/${id}`, { method: 'DELETE' })
+    await fetch(api(`/api/pieces/${id}`), { method: 'DELETE' })
     setPieces((ps) => ps.filter((p) => p.id !== id))
     if (String(id) === editId) {
       setFields(EMPTY)

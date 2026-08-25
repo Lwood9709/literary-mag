@@ -44,7 +44,8 @@ literary-mag/
 │   └── src/pages/      # Home, PiecePage, Admin
 ├── scripts/
 │   ├── setup-db.mjs    # one-time schema creation (+ optional seed)
-│   └── smoke-test.mts  # end-to-end API tests against a local libSQL file
+│   ├── smoke-test.mts  # end-to-end API tests against a local libSQL file
+│   └── live-check.mts  # verifies a real configured stack, local or deployed
 └── vercel.json         # build config + rewrites
 ```
 
@@ -78,12 +79,19 @@ Set all three in the Vercel dashboard for the deployed environment.
 ### Tests
 
 ```bash
-npm run test:api
+npm run test:api                                  # offline, no Turso needed
+npm run check                                     # against your real database
+npm run check -- https://literary-mag.vercel.app  # against the deployment
 ```
 
-Runs the full API surface — routing, auth, validation, filters, CRUD — against a
-throwaway local libSQL file. No network or Turso account required; it calls `app.fetch()`
-directly, the same entry point Vercel uses.
+`test:api` runs the full API surface — routing, auth, validation, filters, CRUD —
+against a throwaway local libSQL file. No network or Turso account required; it calls
+`app.fetch()` directly, the same entry point Vercel uses.
+
+`check` verifies a real, configured stack: that credentials work, that unauthenticated
+writes are refused, and that a create/read/delete round trip succeeds. It cleans up after
+itself and asserts the database is left as it was found, so it is safe to run against
+production.
 
 ---
 

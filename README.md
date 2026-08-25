@@ -1,10 +1,13 @@
 # Literary Mag
 
-A small full-stack literary magazine — publish and browse poems, prose, essays, and stories through a rich-text editor. Built as a portfolio/demo project.
+A small full-stack literary magazine — publish and browse poems, prose, essays, stories
+and recipes through a rich-text editor.
 
-**Live demo**
-- Frontend: https://literary-mag.vercel.app
-- API: https://literary-mag-production.up.railway.app/api/pieces
+**Live:** https://literary-mag.vercel.app
+
+Client and API are served from a single origin on Vercel. The API runs as a serverless
+function, so there is no always-on server: it costs nothing at rest and is available
+whenever someone opens the link.
 
 ---
 
@@ -18,15 +21,15 @@ A small full-stack literary magazine — publish and browse poems, prose, essays
 | Styling | [Tailwind CSS](https://tailwindcss.com/) + `@tailwindcss/typography` |
 | Rich-text editor | [TipTap](https://tiptap.dev/) (StarterKit) |
 | Routing | [React Router](https://reactrouter.com/) |
-| Fonts | Fraunces (serif) + Inter (sans) via Google Fonts |
+| Fonts | Fraunces (serif) + Inter (sans) |
 
-### Backend (`server/`)
+### API (`api/`)
 | Concern | Choice |
 | --- | --- |
-| Runtime | Node.js |
-| Web framework | [Hono](https://hono.dev/) (`@hono/node-server`) |
-| Database | SQLite via [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) |
-| Language | TypeScript (compiled with `tsc`; `tsx` for local dev) |
+| Runtime | Vercel Function (Node.js) |
+| Web framework | [Hono](https://hono.dev/) |
+| Database | [Turso](https://turso.tech/) (hosted libSQL / SQLite) |
+| Driver | [`@libsql/client`](https://docs.turso.tech/sdk/ts/reference) — `fetch`-based, no native modules |
 
 ---
 
@@ -34,51 +37,53 @@ A small full-stack literary magazine — publish and browse poems, prose, essays
 
 ```
 literary-mag/
-├── client/                 # React + Vite frontend
-│   ├── src/
-│   │   ├── pages/          # Home, PiecePage, Admin
-│   │   ├── api.ts          # API base-URL helper (reads VITE_API_URL)
-│   │   └── ...
-│   ├── vercel.json         # SPA rewrite rules for client-side routing
-│   └── vite.config.ts      # Dev proxy: /api -> localhost:3000
-└── server/                 # Hono + SQLite backend
-    ├── src/
-    │   ├── index.ts        # App entry, CORS, server bootstrap
-    │   ├── routes/pieces.ts
-    │   └── db/database.ts  # SQLite connection + schema
-    └── literary.db         # SQLite database file
+├── api/
+│   ├── index.ts        # Hono app + routes + auth; default export is the Vercel function
+│   └── db.ts           # Turso client and row mapping
+├── client/             # React + Vite frontend
+│   └── src/pages/      # Home, PiecePage, Admin
+├── scripts/
+│   ├── setup-db.mjs    # one-time schema creation (+ optional seed)
+│   └── smoke-test.mts  # end-to-end API tests against a local libSQL file
+└── vercel.json         # build config + rewrites
 ```
 
 ---
 
 ## Local Development
 
-**Prerequisites:** Node.js (LTS) and npm.
-
-Run the backend and frontend in two terminals.
+**Prerequisites:** Node.js (LTS), and the [Vercel CLI](https://vercel.com/docs/cli)
+(`npm i -g vercel`).
 
 ```bash
-# Terminal 1 — API on http://localhost:3000
-cd server
 npm install
-npm run dev
-
-# Terminal 2 — app on http://localhost:5173
-cd client
-npm install
-npm run dev
+cp .env.example .env.local     # then fill in the values
+npm run setup-db               # create the schema in Turso
+npm run dev                    # vercel dev — client + API on one origin
 ```
 
-In development, Vite proxies `/api/*` requests to the backend (see `client/vite.config.ts`), so no extra configuration is needed.
+`vercel dev` serves the Vite app and the `api/` function together, so local development
+matches production: same origin, relative `/api/...` paths, no CORS.
 
 ### Environment Variables
 
-| Location | Variable | Purpose |
-| --- | --- | --- |
-| `client` | `VITE_API_URL` | Base URL of the API. **Leave empty in dev** (the Vite proxy handles it); set to the deployed API URL in production. |
-| `server` | `PORT` | Port the server listens on. Defaults to `3000`; the host platform sets this automatically in production. |
+| Variable | Purpose |
+| --- | --- |
+| `TURSO_DATABASE_URL` | libSQL connection URL. Accepts `file:./local.db` for offline work. |
+| `TURSO_AUTH_TOKEN` | Turso database token. Not needed for `file:` URLs. |
+| `ADMIN_PASSWORD` | Shared secret required for writes. **Unset disables writes entirely** — the API fails closed rather than open. |
 
-See `client/.env.example` and `server/.env.example`.
+Set all three in the Vercel dashboard for the deployed environment.
+
+### Tests
+
+```bash
+npm run test:api
+```
+
+Runs the full API surface — routing, auth, validation, filters, CRUD — against a
+throwaway local libSQL file. No network or Turso account required; it calls `app.fetch()`
+directly, the same entry point Vercel uses.
 
 ---
 
@@ -86,72 +91,73 @@ See `client/.env.example` and `server/.env.example`.
 
 Base path: `/api/pieces`
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `GET` | `/api/pieces` | List pieces. Optional `?type=` and `?tag=` filters. |
-| `GET` | `/api/pieces/:id` | Fetch a single piece. |
-| `POST` | `/api/pieces` | Create a piece. Body: `{ title, body, type, tags?, is_ai_generated? }`. |
-| `PUT` | `/api/pieces/:id` | Update a piece. |
-| `DELETE` | `/api/pieces/:id` | Delete a piece. |
+| Method | Endpoint | Auth | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/pieces` | public | List pieces. Optional `?type=` and `?tag=` filters. |
+| `GET` | `/api/pieces/:id` | public | Fetch a single piece. |
+| `POST` | `/api/pieces` | password | Create. Body: `{ title, body, type, tags?, is_ai_generated? }`. |
+| `PUT` | `/api/pieces/:id` | password | Update. Omitted fields keep their current value. |
+| `DELETE` | `/api/pieces/:id` | password | Delete. |
 
-`type` is one of `poem`, `prose`, `essay`, `story`.
+`type` is one of `poem`, `prose`, `essay`, `story`, `recipe`.
 
----
-
-## Deployment Pipeline
-
-The app is split across two platforms, both deploying automatically on push to `main`.
-
-```
-                       git push origin main
-                                │
-              ┌─────────────────┴─────────────────┐
-              ▼                                     ▼
-   ┌──────────────────────┐            ┌──────────────────────┐
-   │  Railway             │            │  Vercel              │
-   │  (server/)           │            │  (client/)           │
-   │                      │  VITE_API_URL                     │
-   │  Hono + SQLite API   │◀───────────│  Static React build  │
-   │  …up.railway.app     │   (CORS)   │  literary-mag.app    │
-   └──────────────────────┘            └──────────────────────┘
-```
-
-### Backend → Railway
-
-Railway builds the server from the `server/` directory using Railpack (Nixpacks-style).
-
-| Setting | Value |
-| --- | --- |
-| Root directory | `server` |
-| Build command | `npm install && npm run build` (runs `tsc` → `dist/`) |
-| Start command | `npm start` (runs `node dist/index.js`) |
-| Networking | Public domain generated; **target port `8080`** (Railway injects `PORT=8080`) |
-
-**Notes / gotchas baked into the config:**
-- TypeScript compiles to plain JavaScript (`npm run build`) so the runtime needs no dev tooling — avoids `tsx: Permission denied` errors in the build container.
-- `typescript` lives in `dependencies` (not `devDependencies`) because Railpack sets `NODE_ENV=production` and skips dev deps during install — `tsc` must still be available at build time.
-- `node_modules/` is git-ignored. Committing it ships Windows binaries with broken Linux execute permissions, which breaks the build.
-- The server reads `process.env.PORT`; the generated domain must target that same port (`8080`).
-
-### Frontend → Vercel
-
-| Setting | Value |
-| --- | --- |
-| Root directory | `client` |
-| Build command | `npm run build` (Vite, auto-detected) |
-| Output | `dist/` |
-| Env var | `VITE_API_URL` = the Railway API URL (no trailing slash) |
-
-**Notes:**
-- `client/vercel.json` rewrites all routes to `/index.html` so client-side routes (`/admin`, `/piece/:id`) resolve instead of 404ing.
-- `VITE_API_URL` is baked into the bundle at build time, so a redeploy is required after changing it.
-
-### CORS
-
-The API enables CORS for the Vercel origin in `server/src/index.ts`. If the frontend domain changes, update the allowed origin there.
+Writes require an `x-admin-password` header matching `ADMIN_PASSWORD`; without it the API
+returns `401`. The comparison is constant-time (`crypto.timingSafeEqual`).
 
 ---
 
-## Known Limitations
+## Deployment
 
-- **Database persistence:** `literary.db` lives on Railway's ephemeral filesystem, so pieces created in production reset to the committed seed data on each redeploy. To persist data, attach a Railway volume or migrate to a hosted SQLite service such as [Turso](https://turso.tech/).
+One Vercel project builds and serves everything.
+
+```
+                        git push origin main
+                                 │
+                                 ▼
+                    ┌────────────────────────┐
+                    │  Vercel                │
+                    │                        │
+                    │  client/  →  static    │
+                    │  api/     →  function  │──── HTTPS ───▶  Turso
+                    │                        │                 (libSQL)
+                    │  one origin, no CORS   │
+                    └────────────────────────┘
+```
+
+| Setting | Value |
+| --- | --- |
+| Root directory | `.` (repository root) |
+| Build command | `cd client && npm install && npm run build` (from `vercel.json`) |
+| Output directory | `client/dist` |
+| Environment | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `ADMIN_PASSWORD` |
+
+`vercel.json` rewrites `/api/*` into the function and everything else into `index.html`
+so client-side routes (`/admin`, `/piece/:id`) resolve instead of 404ing. Order matters:
+the API rule must come first, or the SPA catch-all would swallow API requests.
+
+### Why serverless
+
+The original deployment ran a persistent Node container with `better-sqlite3` writing to a
+local file. That required an always-on host, and the SQLite file lived on an ephemeral
+disk that reset on every redeploy. Moving to a Vercel Function plus Turso removed both
+problems: nothing runs between requests, and the database is durable and separate from the
+deployment.
+
+The port itself was small because Hono targets Web-standard `Request`/`Response` and
+`@libsql/client` uses only `fetch`. The main change was that every database call became
+asynchronous — `better-sqlite3` is synchronous by design.
+
+---
+
+## Design Notes
+
+- **Schema setup is a script, not startup code.** A serverless function is invoked
+  per-request, so running `CREATE TABLE IF NOT EXISTS` on every cold start would be wasted
+  work. Schema changes are a deploy-time concern.
+- **`dangerouslySetInnerHTML`** renders piece bodies, which are HTML from the TipTap
+  editor. Safe because only the password-holder can write; if submissions were ever opened
+  up, that HTML would need sanitising first.
+- **Auth is a single shared password**, not user accounts — appropriate for a
+  single-author site. There are no sessions and no rate limiting on the password check.
+- **Stale-response guarding.** Fetches in `Home.tsx` and `PiecePage.tsx` use an `ignore`
+  flag in the Effect cleanup so a slow earlier request cannot overwrite newer data.

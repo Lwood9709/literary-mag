@@ -1,4 +1,4 @@
-export type PieceType = 'poem' | 'prose' | 'essay' | 'story'
+export type PieceType = 'poem' | 'prose' | 'essay' | 'story' | 'recipe'
 
 export type Piece = {
   id: number

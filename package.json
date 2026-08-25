@@ -1,0 +1,25 @@
+{
+  "name": "literary-mag",
+  "private": true,
+  "type": "module",
+  "description": "Serverless API for Literary Mag, deployed as a Vercel Function.",
+  "scripts": {
+    "dev": "vercel dev",
+    "setup-db": "node scripts/setup-db.mjs",
+    "setup-db:seed": "node scripts/setup-db.mjs --seed",
+    "test:api": "tsx scripts/smoke-test.mts",
+    "check": "tsx scripts/live-check.mts"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.15.15",
+    "hono": "^4.12.14"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.23.12",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

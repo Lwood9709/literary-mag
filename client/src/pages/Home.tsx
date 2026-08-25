@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import type { Piece, PieceType } from '../types'
-import { api } from '../api'
 
-const TYPES: PieceType[] = ['poem', 'prose', 'essay', 'story']
+const TYPES: PieceType[] = ['poem', 'prose', 'essay', 'story', 'recipe']
 
 export default function Home() {
   const [pieces, setPieces] = useState<Piece[]>([])
@@ -12,12 +11,14 @@ export default function Home() {
   const activeType = searchParams.get('type') ?? ''
 
   useEffect(() => {
+    let ignore = false
     setLoading(true)
     const params = activeType ? `?type=${activeType}` : ''
-    fetch(api(`/api/pieces${params}`))
+    fetch(`/api/pieces${params}`)
       .then((r) => r.json())
-      .then((data: Piece[]) => setPieces(data))
-      .finally(() => setLoading(false))
+      .then((data) => { if (!ignore) setPieces(data) })
+      .finally(() => { if (!ignore) setLoading(false) })
+    return () => { ignore = true }
   }, [activeType])
 
   function setFilter(type: string) {

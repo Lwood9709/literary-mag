@@ -9,6 +9,12 @@ dist/
 .env.local
 .env.*.local
 
+# Vercel
+.vercel
+
+# Test artifacts
+.smoke-test.db*
+
 # Logs
 *.log
 npm-debug.log*
@@ -21,3 +27,12 @@ npm-debug.log*
 
 # Claude Code
 .claude/
+
+# Teaching workspace (local only)
+MISSION.md
+RESOURCES.md
+NOTES.md
+lessons/
+reference/
+learning-records/
+assets/

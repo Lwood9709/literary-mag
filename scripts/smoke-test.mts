@@ -1,0 +1,146 @@
+/**
+ * End-to-end smoke test for the serverless API.
+ *
+ *   npm run test:api
+ *
+ * Runs against a throwaway local libSQL file — no Turso account or network
+ * needed. Calls `app.fetch()` directly, the same entry point Vercel uses, so
+ * routing, auth and SQL are all exercised without starting a server.
+ */
+import { createClient } from '@libsql/client'
+import { rmSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
+
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
+const DB_FILE = path.join(root, '.smoke-test.db').replace(/\\/g, '/')
+const PASSWORD = 'test-password-123'
+
+rmSync(DB_FILE, { force: true })
+
+process.env.TURSO_DATABASE_URL = 'file:' + DB_FILE
+process.env.ADMIN_PASSWORD = PASSWORD
+
+const setup = createClient({ url: 'file:' + DB_FILE })
+await setup.execute(`
+  CREATE TABLE IF NOT EXISTS pieces (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('poem', 'prose', 'essay', 'story', 'recipe')),
+    tags TEXT NOT NULL DEFAULT '',
+    is_ai_generated INTEGER NOT NULL DEFAULT 0,
+    published_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`)
+
+// Imported after env is set: api/db.ts reads process.env at module load.
+const app = (await import('../api/index.js')).default
+
+const BASE = 'http://localhost'
+let pass = 0
+let fail = 0
+
+function check(name: string, ok: boolean, detail = '') {
+  if (ok) { pass++; console.log(`  ok    ${name}`) }
+  else { fail++; console.log(`  FAIL  ${name}  ${detail}`) }
+}
+
+async function call(
+  method: string,
+  urlPath: string,
+  opts: { body?: unknown; password?: string } = {}
+) {
+  const headers: Record<string, string> = {}
+  if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
+  if (opts.password !== undefined) headers['x-admin-password'] = opts.password
+  const res = await app.fetch(
+    new Request(BASE + urlPath, {
+      method,
+      headers,
+      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+    })
+  )
+  const text = await res.text()
+  let json: any = null
+  try { json = JSON.parse(text) } catch { /* not json */ }
+  return { status: res.status, json, text }
+}
+
+console.log('\nreads are public')
+let r = await call('GET', '/api/pieces')
+check('GET /api/pieces -> 200', r.status === 200, `got ${r.status} ${r.text}`)
+check('returns an array', Array.isArray(r.json), JSON.stringify(r.json))
+check('starts empty', r.json?.length === 0)
+
+console.log('\nwrites require the password')
+const draft = { title: 'Test Piece', body: '<p>hello</p>', type: 'recipe', tags: 'a,b' }
+
+r = await call('POST', '/api/pieces', { body: draft })
+check('POST no password -> 401', r.status === 401, `got ${r.status}`)
+
+r = await call('POST', '/api/pieces', { body: draft, password: 'wrong' })
+check('POST wrong password -> 401', r.status === 401, `got ${r.status}`)
+
+r = await call('POST', '/api/pieces', { body: draft, password: 'a-completely-different-length' })
+check('POST wrong-length password -> 401, no crash', r.status === 401, `got ${r.status}`)
+
+r = await call('POST', '/api/pieces', { body: draft, password: PASSWORD })
+check('POST correct password -> 201', r.status === 201, `got ${r.status} ${r.text}`)
+check('created row has an id', typeof r.json?.id === 'number', JSON.stringify(r.json))
+check('recipe type accepted', r.json?.type === 'recipe')
+const id = r.json?.id
+
+console.log('\nvalidation')
+r = await call('POST', '/api/pieces', { body: { title: 'x' }, password: PASSWORD })
+check('POST missing fields -> 400', r.status === 400, `got ${r.status}`)
+
+console.log('\nread back')
+r = await call('GET', `/api/pieces/${id}`)
+check('GET by id -> 200', r.status === 200, `got ${r.status}`)
+check('title round-trips', r.json?.title === 'Test Piece')
+check('is_ai_generated is a number', typeof r.json?.is_ai_generated === 'number')
+
+r = await call('GET', '/api/pieces/99999')
+check('GET missing id -> 404', r.status === 404, `got ${r.status}`)
+
+console.log('\nfilters')
+r = await call('GET', '/api/pieces?type=recipe')
+check('?type=recipe finds it', r.json?.length === 1, JSON.stringify(r.json))
+r = await call('GET', '/api/pieces?type=poem')
+check('?type=poem excludes it', r.json?.length === 0)
+r = await call('GET', '/api/pieces?tag=b')
+check('?tag=b finds it', r.json?.length === 1)
+
+console.log('\nupdate')
+r = await call('PUT', `/api/pieces/${id}`, { body: { title: 'Renamed' } })
+check('PUT no password -> 401', r.status === 401, `got ${r.status}`)
+
+r = await call('PUT', `/api/pieces/${id}`, { body: { title: 'Renamed' }, password: PASSWORD })
+check('PUT -> 200', r.status === 200, `got ${r.status}`)
+check('title updated', r.json?.title === 'Renamed')
+check('untouched field preserved', r.json?.tags === 'a,b', JSON.stringify(r.json))
+
+r = await call('PUT', '/api/pieces/99999', { body: { title: 'x' }, password: PASSWORD })
+check('PUT missing id -> 404', r.status === 404, `got ${r.status}`)
+
+console.log('\ndelete')
+r = await call('DELETE', `/api/pieces/${id}`)
+check('DELETE no password -> 401', r.status === 401, `got ${r.status}`)
+
+r = await call('DELETE', `/api/pieces/${id}`, { password: PASSWORD })
+check('DELETE -> 200', r.status === 200, `got ${r.status}`)
+
+r = await call('GET', `/api/pieces/${id}`)
+check('gone afterwards -> 404', r.status === 404, `got ${r.status}`)
+
+r = await call('DELETE', `/api/pieces/${id}`, { password: PASSWORD })
+check('DELETE again -> 404', r.status === 404, `got ${r.status}`)
+
+console.log(`\n${pass} passed, ${fail} failed\n`)
+
+// The scratch database is deleted at the start of each run rather than here:
+// on Windows the file handle can outlive close(), so unlinking now is
+// unreliable. It is gitignored either way.
+setup.close()
+process.exit(fail === 0 ? 0 : 1)

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { Piece } from '../types'
-import { api } from '../api'
 
 export default function PiecePage() {
   const { id } = useParams<{ id: string }>()
@@ -10,14 +9,16 @@ export default function PiecePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(api(`/api/pieces/${id}`))
+    let ignore = false
+    fetch(`/api/pieces/${id}`)
       .then((r) => {
         if (!r.ok) throw new Error('Not found')
         return r.json()
       })
-      .then((data: Piece) => setPiece(data))
-      .catch(() => navigate('/'))
-      .finally(() => setLoading(false))
+      .then((data: Piece) => { if (!ignore) setPiece(data) })
+      .catch(() => { if (!ignore) navigate('/') })
+      .finally(() => { if (!ignore) setLoading(false) })
+    return () => { ignore = true }
   }, [id, navigate])
 
   if (loading)

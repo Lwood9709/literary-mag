@@ -14,3 +14,15 @@ export const PIECES_COLUMNS = `
   is_ai_generated INTEGER NOT NULL DEFAULT 0,
   published_at TEXT NOT NULL DEFAULT (datetime('now'))
 `
+
+/**
+ * Rate-limit log for AI generation. One row per generation that actually
+ * reaches Claude (inserted after a successful call, not before — a failed
+ * call shouldn't burn a cap slot). Checked against a rolling 24h window,
+ * independent of the password gate, so a leaked password or a bug can't
+ * run up API spend unnoticed.
+ */
+export const AI_GENERATIONS_COLUMNS = `
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+`

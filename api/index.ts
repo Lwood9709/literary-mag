@@ -1,6 +1,7 @@
 import { Hono, type MiddlewareHandler } from 'hono'
 import { timingSafeEqual } from 'node:crypto'
 import { db, toPiece, type Piece } from './db.js'
+import { checkRateLimit, logGeneration, generatePiece, GenerationError } from './generate.js'
 
 // basePath('/api') means routes are declared relative to /api, matching the
 // public URLs. vercel.json rewrites every /api/* request into this function.
@@ -39,6 +40,10 @@ app.on(['POST', 'PUT', 'DELETE'], '/pieces/*', requireAdmin)
 
 app.on(['POST', 'PUT', 'DELETE'], '/pieces', requireAdmin)
 
+// Costs real money per call, so it gets the same gate as writes even though
+// it doesn't itself touch the pieces table.
+app.on(['POST'], '/generate', requireAdmin)
+
 app.get('/pieces', async (c) => {
   const { type, tag } = c.req.query()
   const conditions: string[] = []
@@ -67,6 +72,26 @@ app.get('/pieces/:id', async (c) => {
   })
   if (!rows[0]) return c.json({ error: 'Not found' }, 404)
   return c.json(toPiece(rows[0]))
+})
+
+app.post('/generate', async (c) => {
+  if (!(await checkRateLimit())) {
+    return c.json({ error: 'Daily generation limit reached' }, 429)
+  }
+
+  const { type, mood } = await c.req.json<{ type?: string; mood?: string }>()
+  if (!type) {
+    return c.json({ error: 'type is required' }, 400)
+  }
+
+  try {
+    const piece = await generatePiece(type, mood)
+    await logGeneration()
+    return c.json(piece)
+  } catch (err) {
+    const message = err instanceof GenerationError ? err.message : 'Generation failed'
+    return c.json({ error: message }, 502)
+  }
 })
 
 app.post('/pieces', async (c) => {

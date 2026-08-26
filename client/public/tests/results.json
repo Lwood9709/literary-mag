@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-08-26T02:52:08.753Z",
-  "totalTests": 13,
-  "totalPassed": 13,
+  "generatedAt": "2026-08-26T23:25:31.465Z",
+  "totalTests": 17,
+  "totalPassed": 17,
   "totalFailed": 0,
-  "totalDuration": 10023,
+  "totalDuration": 13151,
   "specs": [
     {
       "spec": "admin.cy.ts",
@@ -11,22 +11,22 @@
         {
           "title": "admin > shows the lock screen at /admin",
           "state": "passed",
-          "duration": 713
+          "duration": 705
         },
         {
           "title": "admin > rejects a wrong password when attempting to publish",
           "state": "passed",
-          "duration": 1558
+          "duration": 1729
         },
         {
           "title": "admin > publishes a new piece with the correct password",
           "state": "passed",
-          "duration": 1668
+          "duration": 1434
         },
         {
           "title": "admin > deletes a piece from the sidebar",
           "state": "passed",
-          "duration": 660
+          "duration": 569
         }
       ]
     },
@@ -36,12 +36,37 @@
         {
           "title": "colophon > is reachable from the home page footer",
           "state": "passed",
-          "duration": 342
+          "duration": 324
         },
         {
           "title": "colophon > renders real test results and the recording",
           "state": "passed",
-          "duration": 78
+          "duration": 59
+        }
+      ]
+    },
+    {
+      "spec": "generate.cy.ts",
+      "tests": [
+        {
+          "title": "AI generation > fills the editor, checks the AI box, and shows the badge once published",
+          "state": "passed",
+          "duration": 1025
+        },
+        {
+          "title": "AI generation > shows the rate-limit message on a 429 without crashing",
+          "state": "passed",
+          "duration": 536
+        },
+        {
+          "title": "AI generation > disables generation for the found type, reserved for real imports",
+          "state": "passed",
+          "duration": 555
+        },
+        {
+          "title": "AI generation > lets the manual checkbox override the flag on its own",
+          "state": "passed",
+          "duration": 1418
         }
       ]
     },
@@ -51,12 +76,12 @@
         {
           "title": "poetry import > fills the editor with an imported poem",
           "state": "passed",
-          "duration": 1207
+          "duration": 1140
         },
         {
           "title": "poetry import > shows an inline error when PoetryDB has no match, without crashing",
           "state": "passed",
-          "duration": 885
+          "duration": 840
         }
       ]
     },
@@ -66,7 +91,7 @@
         {
           "title": "race condition guard > a slow earlier response cannot overwrite a faster later one",
           "state": "passed",
-          "duration": 1871
+          "duration": 1867
         }
       ]
     },
@@ -76,22 +101,22 @@
         {
           "title": "reading the magazine > lists pieces on load",
           "state": "passed",
-          "duration": 240
+          "duration": 209
         },
         {
           "title": "reading the magazine > filters by type and updates the URL",
           "state": "passed",
-          "duration": 313
+          "duration": 281
         },
         {
           "title": "reading the magazine > opens a piece and renders its body",
           "state": "passed",
-          "duration": 187
+          "duration": 170
         },
         {
           "title": "reading the magazine > shows attribution on a found piece",
           "state": "passed",
-          "duration": 262
+          "duration": 240
         }
       ]
     }

@@ -41,15 +41,16 @@ whenever someone opens the link.
 literary-mag/
 ├── api/
 │   ├── index.ts        # Hono app + routes + auth; default export is the Vercel function
-│   └── db.ts           # Turso client and row mapping
+│   ├── db.ts           # Turso client and row mapping
+│   └── generate.ts     # Claude call + rate limit for AI generation
 ├── client/             # React + Vite frontend
 │   ├── src/pages/      # Home, PiecePage, Admin, Colophon
 │   └── public/tests/   # results.json + suite.mp4 — committed, read by /colophon
 ├── cypress/
-│   ├── e2e/            # browser specs (reading, admin, import, race-condition, colophon)
+│   ├── e2e/            # browser specs (reading, admin, import, generate, race-condition, colophon)
 │   └── support/        # custom commands (resetPieces, unlockAdmin)
 ├── scripts/
-│   ├── schema.mjs       # single source of truth for the pieces table shape
+│   ├── schema.mjs       # single source of truth for the pieces + ai_generations tables
 │   ├── setup-db.mjs     # one-time schema creation (+ optional seed)
 │   ├── smoke-test.mts   # API tests against a local libSQL file, no browser
 │   ├── test-server.mts  # serves client + api/ together for Cypress
@@ -88,8 +89,9 @@ relative `/api/...` paths, no CORS.
 | `TURSO_DATABASE_URL` | libSQL connection URL. Accepts `file:./local.db` for offline work. |
 | `TURSO_AUTH_TOKEN` | Turso database token. Not needed for `file:` URLs. |
 | `ADMIN_PASSWORD` | Shared secret required for writes. **Unset disables writes entirely** — the API fails closed rather than open. |
+| `ANTHROPIC_API_KEY` | Powers "Generate with AI" in `/admin`. **Unset disables generation entirely**, same fail-closed pattern. |
 
-Set all three in the Vercel dashboard for the deployed environment.
+Set all four in the Vercel dashboard for the deployed environment.
 
 ### Tests
 
@@ -146,6 +148,7 @@ Base path: `/api/pieces`
 | `POST` | `/api/pieces` | password | Create. Body: `{ title, body, type, tags?, is_ai_generated? }`. |
 | `PUT` | `/api/pieces/:id` | password | Update. Omitted fields keep their current value. |
 | `DELETE` | `/api/pieces/:id` | password | Delete. |
+| `POST` | `/api/generate` | password | Draft a piece with Claude. Body: `{ type, mood? }`. Returns `{ title, body }`. `429` past the daily cap. |
 
 `type` is one of `poem`, `prose`, `essay`, `story`, `recipe`, `found`.
 
@@ -163,6 +166,31 @@ Imported poems are saved as `type: 'found'`, kept distinct from original writing
 carry the original author both in the piece body and in the tags. The client
 (`client/src/lib/poetrydb.ts`) calls PoetryDB directly — it allows all origins via CORS, so
 no server-side proxy is needed.
+
+### Generating pieces with AI
+
+`/admin` also has a "Generate with AI" button next to the PoetryDB import row, using the
+same mood/theme input. Unlike PoetryDB, this can't be called from the browser — an API key
+has to stay secret — so `api/generate.ts` calls the [Anthropic API](https://console.anthropic.com)
+server-side (Claude Haiku 4.5) and the client only ever talks to `POST /api/generate`.
+
+Three independent guardrails keep cost bounded, since this is the one route in the app that
+spends real money per call:
+
+- **The same password gate as writes** (`requireAdmin` in `api/index.ts`) — only the
+  operator can trigger it, not public visitors.
+- **A hard cap of 3 generations per rolling 24 hours**, tracked in the `ai_generations` table
+  and checked before Claude is ever called — independent of the password, so a leaked
+  password or a bug can't run up spend unnoticed.
+- **A fixed cheap model and a tight `max_tokens`** (`claude-haiku-4-5`, capped at 800 output
+  tokens) — not user-adjustable, so nothing in the UI can raise the ceiling.
+
+Set a spend limit in the [Anthropic Console](https://console.anthropic.com) (Settings →
+Billing) as a platform-level backstop independent of all three.
+
+Generated pieces are marked `is_ai_generated: 1` — the same flag a manual checkbox in
+`/admin` can set or clear on any piece, generated or not — and render the "AI" badge already
+built into `Home.tsx` and `PiecePage.tsx`.
 
 ---
 

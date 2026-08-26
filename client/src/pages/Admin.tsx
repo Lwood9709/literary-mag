@@ -14,11 +14,12 @@ const MAX_LINES_OPTIONS = [
   { label: 'any length', value: 0 },
 ]
 
-const EMPTY: Omit<Piece, 'id' | 'published_at' | 'is_ai_generated'> = {
+const EMPTY: Omit<Piece, 'id' | 'published_at'> = {
   title: '',
   body: '',
   type: 'poem',
   tags: '',
+  is_ai_generated: 0,
 }
 
 const PASSWORD_KEY = 'literary-mag:admin-password'
@@ -137,6 +138,9 @@ export default function Admin() {
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState('')
 
+  const [generating, setGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState('')
+
   const editor = useEditor({
     extensions: [StarterKit],
     content: fields.body,
@@ -173,7 +177,13 @@ export default function Admin() {
       .then((r) => r.json())
       .then((p: Piece) => {
         if (ignore) return
-        setFields({ title: p.title, body: p.body, type: p.type, tags: p.tags })
+        setFields({
+          title: p.title,
+          body: p.body,
+          type: p.type,
+          tags: p.tags,
+          is_ai_generated: p.is_ai_generated,
+        })
         editor?.commands.setContent(p.body)
       })
     return () => { ignore = true }
@@ -218,6 +228,7 @@ export default function Admin() {
       body: poem.html,
       type: 'found',
       tags: [authorTag, 'poetrydb'].filter(Boolean).join(', '),
+      is_ai_generated: 0,
     })
     editor?.commands.setContent(poem.html)
   }
@@ -234,6 +245,36 @@ export default function Admin() {
       setAuthError('That password was not accepted.')
     }
     return res
+  }
+
+  async function generateWithAI() {
+    const hasDraft = fields.title.trim() || editor?.getText().trim()
+    if (hasDraft && !window.confirm('Replace the current draft with an AI-generated piece?')) {
+      return
+    }
+
+    setGenerating(true)
+    setGenerateError('')
+    const res = await authedFetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: fields.type, mood: mood || undefined }),
+    })
+    setGenerating(false)
+
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { error?: string } | null
+      setGenerateError(
+        res.status === 429
+          ? 'Daily AI generation limit reached — try again tomorrow.'
+          : data?.error ?? 'Generation failed — try again.'
+      )
+      return
+    }
+
+    const piece = (await res.json()) as { title: string; body: string }
+    setFields((f) => ({ ...f, title: piece.title, body: piece.body, is_ai_generated: 1 }))
+    editor?.commands.setContent(piece.body)
   }
 
   async function save() {
@@ -343,16 +384,27 @@ export default function Admin() {
               >
                 {importing ? 'Searching…' : 'Find a poem'}
               </button>
+              <button
+                type="button"
+                onClick={generateWithAI}
+                disabled={generating || fields.type === 'found'}
+                title={fields.type === 'found' ? '"found" is reserved for real PoetryDB imports' : undefined}
+                className="px-4 py-1.5 rounded-full text-xs tracking-wide border border-sage/40 text-forest-soft hover:bg-sage hover:text-white hover:border-sage disabled:opacity-40 transition-colors"
+              >
+                {generating ? 'Generating…' : 'Generate with AI'}
+              </button>
             </div>
             <p className="text-xs text-muted">
-              Public-domain poems from{' '}
+              <strong>Find a poem</strong> pulls public-domain text from{' '}
               <a href="https://poetrydb.org" target="_blank" rel="noreferrer" className="underline hover:text-sage">
                 PoetryDB
               </a>
-              , attributed to their original authors — not your own writing. Matches search
-              anywhere in the poem's text, so results can be loose.
+              , attributed to its original author. <strong>Generate with AI</strong> drafts an
+              original piece of the selected type with Claude, using the mood above as an
+              optional prompt — capped at 3 generations a day.
             </p>
             {importError && <p className="text-xs text-blush-dark">{importError}</p>}
+            {generateError && <p className="text-xs text-blush-dark">{generateError}</p>}
           </div>
 
           <input
@@ -394,7 +446,19 @@ export default function Admin() {
             className="w-full text-sm border-b border-sage/30 py-2 outline-none focus:border-sage bg-transparent text-forest-soft placeholder:text-muted/50"
           />
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-xs text-forest-soft cursor-pointer">
+              <input
+                type="checkbox"
+                checked={fields.is_ai_generated === 1}
+                onChange={(e) =>
+                  setFields((f) => ({ ...f, is_ai_generated: e.target.checked ? 1 : 0 }))
+                }
+                className="accent-sage"
+              />
+              Mark as AI-generated
+            </label>
+
             <button
               onClick={save}
               disabled={saving || !fields.title || !fields.body}

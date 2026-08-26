@@ -16,7 +16,7 @@ import { createClient } from '@libsql/client'
 import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { PIECES_COLUMNS } from './schema.mjs'
+import { PIECES_COLUMNS, AI_GENERATIONS_COLUMNS } from './schema.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const envPath = path.join(__dirname, '..', '.env.local')
@@ -47,6 +47,7 @@ console.log(`Connecting to ${url}`)
 
 // Fresh databases get the up-to-date table immediately.
 await db.execute(`CREATE TABLE IF NOT EXISTS pieces (${PIECES_COLUMNS})`)
+await db.execute(`CREATE TABLE IF NOT EXISTS ai_generations (${AI_GENERATIONS_COLUMNS})`)
 
 // Migration: databases created before 'found' existed still carry the old
 // CHECK constraint, and SQLite can't ALTER a CHECK in place. So if the stored

@@ -11,7 +11,7 @@ import { createClient } from '@libsql/client'
 import { rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { PIECES_COLUMNS } from './schema.mjs'
+import { PIECES_COLUMNS, AI_GENERATIONS_COLUMNS } from './schema.mjs'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DB_FILE = path.join(root, '.smoke-test.db').replace(/\\/g, '/')
@@ -24,6 +24,7 @@ process.env.ADMIN_PASSWORD = PASSWORD
 
 const setup = createClient({ url: 'file:' + DB_FILE })
 await setup.execute(`CREATE TABLE IF NOT EXISTS pieces (${PIECES_COLUMNS})`)
+await setup.execute(`CREATE TABLE IF NOT EXISTS ai_generations (${AI_GENERATIONS_COLUMNS})`)
 
 // Imported after env is set: api/db.ts reads process.env at module load.
 const app = (await import('../api/index.js')).default
@@ -144,6 +145,25 @@ check('gone afterwards -> 404', r.status === 404, `got ${r.status}`)
 
 r = await call('DELETE', `/api/pieces/${id}`, { password: PASSWORD })
 check('DELETE again -> 404', r.status === 404, `got ${r.status}`)
+
+// AI generation: only the auth/validation/rate-limit paths are exercised here,
+// never a real Claude call. Those checks all run before generatePiece() is
+// ever invoked, so no ANTHROPIC_API_KEY or network access is needed.
+console.log('\nAI generation (auth, validation, and rate limit only — never calls Claude)')
+
+r = await call('POST', '/api/generate', { body: { type: 'poem' } })
+check('POST /api/generate no password -> 401', r.status === 401, `got ${r.status}`)
+
+r = await call('POST', '/api/generate', { body: {}, password: PASSWORD })
+check('POST /api/generate missing type -> 400', r.status === 400, `got ${r.status}`)
+
+// Fill the daily cap directly, bypassing the route entirely, then confirm
+// the next request is rejected before it would ever reach Claude.
+for (let i = 0; i < 3; i++) {
+  await setup.execute(`INSERT INTO ai_generations DEFAULT VALUES`)
+}
+r = await call('POST', '/api/generate', { body: { type: 'poem' }, password: PASSWORD })
+check('POST /api/generate at daily cap -> 429', r.status === 429, `got ${r.status} ${r.text}`)
 
 console.log(`\n${pass} passed, ${fail} failed\n`)
 

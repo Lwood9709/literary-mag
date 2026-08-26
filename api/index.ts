@@ -1,7 +1,7 @@
 import { Hono, type MiddlewareHandler } from 'hono'
 import { timingSafeEqual } from 'node:crypto'
-import { db, toPiece, type Piece } from './db.js'
-import { checkRateLimit, logGeneration, generatePiece, GenerationError } from './generate.js'
+import { db, toPiece, type Piece } from './_lib/db.js'
+import { checkRateLimit, logGeneration, generatePiece, GenerationError } from './_lib/generate.js'
 
 // basePath('/api') means routes are declared relative to /api, matching the
 // public URLs. vercel.json rewrites every /api/* request into this function.

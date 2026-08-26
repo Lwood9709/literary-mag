@@ -446,19 +446,7 @@ export default function Admin() {
             className="w-full text-sm border-b border-sage/30 py-2 outline-none focus:border-sage bg-transparent text-forest-soft placeholder:text-muted/50"
           />
 
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-xs text-forest-soft cursor-pointer">
-              <input
-                type="checkbox"
-                checked={fields.is_ai_generated === 1}
-                onChange={(e) =>
-                  setFields((f) => ({ ...f, is_ai_generated: e.target.checked ? 1 : 0 }))
-                }
-                className="accent-sage"
-              />
-              Mark as AI-generated
-            </label>
-
+          <div className="flex justify-end">
             <button
               onClick={save}
               disabled={saving || !fields.title || !fields.body}

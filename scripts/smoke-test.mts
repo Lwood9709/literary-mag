@@ -26,7 +26,7 @@ const setup = createClient({ url: 'file:' + DB_FILE })
 await setup.execute(`CREATE TABLE IF NOT EXISTS pieces (${PIECES_COLUMNS})`)
 await setup.execute(`CREATE TABLE IF NOT EXISTS ai_generations (${AI_GENERATIONS_COLUMNS})`)
 
-// Imported after env is set: api/db.ts reads process.env at module load.
+// Imported after env is set: api/_lib/db.ts reads process.env at module load.
 const app = (await import('../api/index.js')).default
 
 const BASE = 'http://localhost'

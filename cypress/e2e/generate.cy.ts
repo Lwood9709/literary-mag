@@ -10,7 +10,7 @@ describe('AI generation', () => {
     cy.unlockAdmin()
   })
 
-  it('fills the editor, checks the AI box, and shows the badge once published', () => {
+  it('fills the editor and auto-flags the piece, shown as the badge once published', () => {
     cy.intercept('POST', '/api/generate', {
       statusCode: 200,
       body: {
@@ -25,11 +25,10 @@ describe('AI generation', () => {
 
     cy.get('input[placeholder="Title"]').should('have.value', 'A Generated Piece')
     cy.get('.ProseMirror').contains('Written by the model, for now.')
-    cy.get('input[type="checkbox"]').should('be.checked')
 
-    // The real /api/pieces write (not stubbed) — proves is_ai_generated
-    // actually reaches the database and back out to the badge, the whole
-    // point of this feature.
+    // No checkbox to inspect — is_ai_generated is set automatically by
+    // generateWithAI(). Publishing for real (not stubbed) and checking for
+    // the badge is what actually proves the flag reached the database.
     cy.contains('button', 'Publish').click()
     cy.url().should('include', '/piece/')
     cy.contains('AI')
@@ -58,12 +57,11 @@ describe('AI generation', () => {
     cy.contains('button', 'Generate with AI').should('be.disabled')
   })
 
-  it('lets the manual checkbox override the flag on its own', () => {
+  it('does not flag a hand-written piece as AI-generated', () => {
     cy.get('input[placeholder="Title"]').type('Hand-written piece')
     cy.get('.ProseMirror').type('No generation involved here.')
-    cy.get('input[type="checkbox"]').check()
-    cy.get('input[type="checkbox"]').should('be.checked')
-    cy.get('input[type="checkbox"]').uncheck()
-    cy.get('input[type="checkbox"]').should('not.be.checked')
+    cy.contains('button', 'Publish').click()
+    cy.url().should('include', '/piece/')
+    cy.contains('AI').should('not.exist')
   })
 })

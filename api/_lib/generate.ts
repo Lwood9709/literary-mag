@@ -1,4 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
+import { z } from 'zod'
 import { db } from './db.js'
 
 const MODEL = 'claude-haiku-4-5'
@@ -22,11 +24,18 @@ const SYSTEM_PROMPT = `You write original short pieces for a literary magazine. 
 piece type and an optional mood or theme, write one complete, publication-ready piece in
 that type — genuinely creative, not a placeholder or an outline.
 
-Respond with nothing but a single JSON object, no surrounding prose or code fences:
-{"title": "...", "body": "..."}
-
 "body" must be HTML using only these tags: <p>, <br>, <h2>, <h3>, <strong>, <em>,
 <blockquote>, <ul>, <ol>, <li>. No other tags, no markdown, no attributes.`
+
+// Enforced by the API itself (output_config.format below) rather than by
+// asking nicely in the prompt — a prompted-JSON approach failed in practice:
+// Haiku would sometimes wrap the object in markdown fences or add a stray
+// sentence, breaking JSON.parse. Structured outputs constrain the response
+// at the API level, so malformed output isn't possible to begin with.
+const PieceSchema = z.object({
+  title: z.string(),
+  body: z.string(),
+})
 
 export class GenerationError extends Error {}
 
@@ -52,37 +61,20 @@ export async function generatePiece(
 
   let response
   try {
-    response = await client.messages.create({
+    response = await client.messages.parse({
       model: MODEL,
       max_tokens: MAX_TOKENS,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userPrompt }],
+      output_config: { format: zodOutputFormat(PieceSchema) },
     })
   } catch (err) {
     throw new GenerationError(`Claude API call failed: ${(err as Error).message}`)
   }
 
-  const textBlock = response.content.find((b) => b.type === 'text')
-  if (!textBlock || textBlock.type !== 'text') {
-    throw new GenerationError('Claude returned no text content')
+  if (!response.parsed_output) {
+    throw new GenerationError('Claude response did not match the expected shape')
   }
 
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(textBlock.text)
-  } catch {
-    throw new GenerationError('Claude response was not valid JSON')
-  }
-
-  if (
-    typeof parsed !== 'object' ||
-    parsed === null ||
-    typeof (parsed as Record<string, unknown>).title !== 'string' ||
-    typeof (parsed as Record<string, unknown>).body !== 'string'
-  ) {
-    throw new GenerationError('Claude response was missing title or body')
-  }
-
-  const { title, body } = parsed as { title: string; body: string }
-  return { title, body }
+  return response.parsed_output
 }

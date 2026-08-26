@@ -40,9 +40,10 @@ whenever someone opens the link.
 ```
 literary-mag/
 ├── api/
-│   ├── index.ts        # Hono app + routes + auth; default export is the Vercel function
-│   ├── db.ts           # Turso client and row mapping
-│   └── generate.ts     # Claude call + rate limit for AI generation
+│   ├── index.ts        # Hono app + routes + auth; the only file Vercel builds as a function
+│   └── _lib/           # underscore prefix — excluded from Vercel's auto-routing
+│       ├── db.ts        # Turso client and row mapping
+│       └── generate.ts  # Claude call + rate limit for AI generation
 ├── client/             # React + Vite frontend
 │   ├── src/pages/      # Home, PiecePage, Admin, Colophon
 │   └── public/tests/   # results.json + suite.mp4 — committed, read by /colophon
@@ -171,7 +172,7 @@ no server-side proxy is needed.
 
 `/admin` also has a "Generate with AI" button next to the PoetryDB import row, using the
 same mood/theme input. Unlike PoetryDB, this can't be called from the browser — an API key
-has to stay secret — so `api/generate.ts` calls the [Anthropic API](https://console.anthropic.com)
+has to stay secret — so `api/_lib/generate.ts` calls the [Anthropic API](https://console.anthropic.com)
 server-side (Claude Haiku 4.5) and the client only ever talks to `POST /api/generate`.
 
 Three independent guardrails keep cost bounded, since this is the one route in the app that
@@ -257,3 +258,11 @@ asynchronous — `better-sqlite3` is synchronous by design.
   single-author site. There are no sessions and no rate limiting on the password check.
 - **Stale-response guarding.** Fetches in `Home.tsx` and `PiecePage.tsx` use an `ignore`
   flag in the Effect cleanup so a slow earlier request cannot overwrite newer data.
+- **Every file directly under `api/` becomes its own Vercel Function** — a zero-config
+  convention independent of any custom `vercel.json` rewrite. `db.ts` and `generate.ts` are
+  shared helper modules, not routes, so they live in `api/_lib/` (underscore-prefixed
+  directories are excluded from auto-routing). Putting a helper directly in `api/` builds
+  fine but crashes at request time — `generate.ts` briefly lived there and broke
+  `POST /api/generate` in production with *"Invalid export found in module... The default
+  export must be a function or server"*, since Vercel tried to invoke it directly instead
+  of routing through `index.ts`.

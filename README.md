@@ -185,8 +185,6 @@ spends real money per call:
 - **A fixed cheap model and a tight `max_tokens`** (`claude-haiku-4-5`, capped at 800 output
   tokens) — not user-adjustable, so nothing in the UI can raise the ceiling.
 
-Set a spend limit in the [Anthropic Console](https://console.anthropic.com) (Settings →
-Billing) as a platform-level backstop independent of all three.
 
 Generated pieces are marked `is_ai_generated: 1` — the same flag a manual checkbox in
 `/admin` can set or clear on any piece, generated or not — and render the "AI" badge already

@@ -100,6 +100,12 @@ export default function Home() {
           </li>
         ))}
       </ul>
+
+      <footer className="mt-16 pt-6 border-t border-sage-light">
+        <Link to="/colophon" className="text-xs text-muted hover:text-sage">
+          Colophon
+        </Link>
+      </footer>
     </main>
   )
 }

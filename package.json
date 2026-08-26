@@ -7,14 +7,21 @@
     "setup-db": "node scripts/setup-db.mjs",
     "setup-db:seed": "node scripts/setup-db.mjs --seed",
     "test:api": "tsx scripts/smoke-test.mts",
-    "check": "tsx scripts/live-check.mts"
+    "check": "tsx scripts/live-check.mts",
+    "test:server": "tsx scripts/test-server.mts",
+    "test:e2e": "start-server-and-test test:server http://localhost:4173 \"cypress run\"",
+    "test:e2e:open": "start-server-and-test test:server http://localhost:4173 \"cypress open\"",
+    "test:all": "npm run test:api && npm run test:e2e"
   },
   "dependencies": {
     "@libsql/client": "^0.15.15",
     "hono": "^4.12.14"
   },
   "devDependencies": {
+    "@hono/node-server": "^2.1.1",
     "@types/node": "^25.6.0",
+    "cypress": "^15.21.1",
+    "start-server-and-test": "^3.0.12",
     "tsx": "^4.23.12",
     "typescript": "^6.0.3"
   },

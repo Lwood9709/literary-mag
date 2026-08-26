@@ -16,6 +16,7 @@ import { createClient } from '@libsql/client'
 import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { PIECES_COLUMNS } from './schema.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const envPath = path.join(__dirname, '..', '.env.local')
@@ -41,18 +42,6 @@ if (!url) {
 }
 
 const db = createClient({ url, authToken })
-
-// Single source of truth for the table's shape. `type` is restricted to a
-// fixed set of categories at the database level via a CHECK constraint.
-const PIECES_COLUMNS = `
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  body TEXT NOT NULL,
-  type TEXT NOT NULL CHECK(type IN ('poem', 'prose', 'essay', 'story', 'recipe', 'found')),
-  tags TEXT NOT NULL DEFAULT '',
-  is_ai_generated INTEGER NOT NULL DEFAULT 0,
-  published_at TEXT NOT NULL DEFAULT (datetime('now'))
-`
 
 console.log(`Connecting to ${url}`)
 

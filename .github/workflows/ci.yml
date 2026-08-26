@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: API smoke tests (offline, no Turso needed)
+        run: npm run test:api
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Build client
+        working-directory: client
+        run: npm run build
+
+      # Runs against scripts/test-server.mts — a throwaway local libSQL file,
+      # never production Turso. No secrets are needed for this job.
+      - name: Cypress e2e tests
+        uses: cypress-io/github-action@v7
+        with:
+          install: false # already installed above
+          start: npm run test:server
+          wait-on: 'http://localhost:4173'
+          wait-on-timeout: 60
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-diagnostics
+          path: |
+            cypress/videos
+            cypress/screenshots
+          retention-days: 5

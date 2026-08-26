@@ -1,0 +1,99 @@
+{
+  "generatedAt": "2026-08-26T02:52:08.753Z",
+  "totalTests": 13,
+  "totalPassed": 13,
+  "totalFailed": 0,
+  "totalDuration": 10023,
+  "specs": [
+    {
+      "spec": "admin.cy.ts",
+      "tests": [
+        {
+          "title": "admin > shows the lock screen at /admin",
+          "state": "passed",
+          "duration": 713
+        },
+        {
+          "title": "admin > rejects a wrong password when attempting to publish",
+          "state": "passed",
+          "duration": 1558
+        },
+        {
+          "title": "admin > publishes a new piece with the correct password",
+          "state": "passed",
+          "duration": 1668
+        },
+        {
+          "title": "admin > deletes a piece from the sidebar",
+          "state": "passed",
+          "duration": 660
+        }
+      ]
+    },
+    {
+      "spec": "colophon.cy.ts",
+      "tests": [
+        {
+          "title": "colophon > is reachable from the home page footer",
+          "state": "passed",
+          "duration": 342
+        },
+        {
+          "title": "colophon > renders real test results and the recording",
+          "state": "passed",
+          "duration": 78
+        }
+      ]
+    },
+    {
+      "spec": "import.cy.ts",
+      "tests": [
+        {
+          "title": "poetry import > fills the editor with an imported poem",
+          "state": "passed",
+          "duration": 1207
+        },
+        {
+          "title": "poetry import > shows an inline error when PoetryDB has no match, without crashing",
+          "state": "passed",
+          "duration": 885
+        }
+      ]
+    },
+    {
+      "spec": "race-condition.cy.ts",
+      "tests": [
+        {
+          "title": "race condition guard > a slow earlier response cannot overwrite a faster later one",
+          "state": "passed",
+          "duration": 1871
+        }
+      ]
+    },
+    {
+      "spec": "reading.cy.ts",
+      "tests": [
+        {
+          "title": "reading the magazine > lists pieces on load",
+          "state": "passed",
+          "duration": 240
+        },
+        {
+          "title": "reading the magazine > filters by type and updates the URL",
+          "state": "passed",
+          "duration": 313
+        },
+        {
+          "title": "reading the magazine > opens a piece and renders its body",
+          "state": "passed",
+          "duration": 187
+        },
+        {
+          "title": "reading the magazine > shows attribution on a found piece",
+          "state": "passed",
+          "duration": 262
+        }
+      ]
+    }
+  ]
+}

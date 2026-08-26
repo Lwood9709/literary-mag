@@ -11,6 +11,7 @@ import { createClient } from '@libsql/client'
 import { rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { PIECES_COLUMNS } from './schema.mjs'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DB_FILE = path.join(root, '.smoke-test.db').replace(/\\/g, '/')
@@ -22,17 +23,7 @@ process.env.TURSO_DATABASE_URL = 'file:' + DB_FILE
 process.env.ADMIN_PASSWORD = PASSWORD
 
 const setup = createClient({ url: 'file:' + DB_FILE })
-await setup.execute(`
-  CREATE TABLE IF NOT EXISTS pieces (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    body TEXT NOT NULL,
-    type TEXT NOT NULL CHECK(type IN ('poem', 'prose', 'essay', 'story', 'recipe', 'found')),
-    tags TEXT NOT NULL DEFAULT '',
-    is_ai_generated INTEGER NOT NULL DEFAULT 0,
-    published_at TEXT NOT NULL DEFAULT (datetime('now'))
-  )
-`)
+await setup.execute(`CREATE TABLE IF NOT EXISTS pieces (${PIECES_COLUMNS})`)
 
 // Imported after env is set: api/db.ts reads process.env at module load.
 const app = (await import('../api/index.js')).default

@@ -1,9 +1,11 @@
 # Literary Mag
 
+[![CI](https://github.com/Lwood9709/literary-mag/actions/workflows/ci.yml/badge.svg)](https://github.com/Lwood9709/literary-mag/actions/workflows/ci.yml)
+
 A small full-stack literary magazine — publish and browse poems, prose, essays, stories
 and recipes through a rich-text editor.
 
-**Live:** https://literary-mag.vercel.app
+**Live:** https://literary-mag.vercel.app · **How it's built:** [/colophon](https://literary-mag.vercel.app/colophon)
 
 Client and API are served from a single origin on Vercel. The API runs as a serverless
 function, so there is no always-on server: it costs nothing at rest and is available
@@ -41,12 +43,20 @@ literary-mag/
 │   ├── index.ts        # Hono app + routes + auth; default export is the Vercel function
 │   └── db.ts           # Turso client and row mapping
 ├── client/             # React + Vite frontend
-│   └── src/pages/      # Home, PiecePage, Admin
+│   ├── src/pages/      # Home, PiecePage, Admin, Colophon
+│   └── public/tests/   # results.json + suite.mp4 — committed, read by /colophon
+├── cypress/
+│   ├── e2e/            # browser specs (reading, admin, import, race-condition, colophon)
+│   └── support/        # custom commands (resetPieces, unlockAdmin)
 ├── scripts/
-│   ├── setup-db.mjs    # one-time schema creation (+ optional seed)
-│   ├── smoke-test.mts  # end-to-end API tests against a local libSQL file
-│   └── live-check.mts  # verifies a real configured stack, local or deployed
-└── vercel.json         # build config + rewrites
+│   ├── schema.mjs       # single source of truth for the pieces table shape
+│   ├── setup-db.mjs     # one-time schema creation (+ optional seed)
+│   ├── smoke-test.mts   # API tests against a local libSQL file, no browser
+│   ├── test-server.mts  # serves client + api/ together for Cypress
+│   └── live-check.mts   # verifies a real configured stack, local or deployed
+├── cypress.config.ts    # baseUrl, video, and the after:run results/video writer
+├── vercel.json          # build config + rewrites
+└── .github/workflows/ci.yml
 ```
 
 ---
@@ -97,6 +107,31 @@ against a throwaway local libSQL file. No network or Turso account required; it 
 writes are refused, and that a create/read/delete round trip succeeds. It cleans up after
 itself and asserts the database is left as it was found, so it is safe to run against
 production.
+
+### Browser tests (Cypress)
+
+```bash
+npm run test:e2e         # headless, builds nothing for you — run `cd client && npm run build` first
+npm run test:e2e:open    # interactive runner, same server
+```
+
+`scripts/test-server.mts` serves the built client and the real `api/` app together on
+`localhost:4173`, backed by a throwaway `file:` libSQL database — no Turso account, no
+secrets, safe to run anywhere including CI. `cypress/e2e/race-condition.cy.ts` is a
+genuine regression test: it forces an earlier request to resolve after a later one via
+`cy.intercept`, and fails if the `ignore`-flag cleanup in `Home.tsx` is ever removed.
+
+Each `npm run test:e2e` run regenerates `client/public/tests/results.json` and
+`suite.mp4`, which the `/colophon` page reads to show real, current test results — not a
+hand-maintained list. Commit those two files after a run you want reflected there; they
+are not auto-updated by CI.
+
+> **Windows note:** if Cypress fails with `bad option: --smoke-test` or a Windows DLL
+> error, check for `ELECTRON_RUN_AS_NODE` in your shell (`echo $env:ELECTRON_RUN_AS_NODE`
+> in PowerShell). Some Electron-hosted terminals (VS Code's extension host among them) set
+> it for their own child processes, and it leaks into anything launched from that shell —
+> including Cypress's own Electron binary, which then can't start normally. Clear it
+> (`Remove-Item Env:\ELECTRON_RUN_AS_NODE`) before running Cypress commands.
 
 ---
 

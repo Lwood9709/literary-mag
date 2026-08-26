@@ -36,3 +36,6 @@ lessons/
 reference/
 learning-records/
 assets/
+
+.vercel
+.env*

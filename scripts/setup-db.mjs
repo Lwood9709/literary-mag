@@ -42,20 +42,47 @@ if (!url) {
 
 const db = createClient({ url, authToken })
 
-const SCHEMA = `
-  CREATE TABLE IF NOT EXISTS pieces (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    body TEXT NOT NULL,
-    type TEXT NOT NULL CHECK(type IN ('poem', 'prose', 'essay', 'story', 'recipe')),
-    tags TEXT NOT NULL DEFAULT '',
-    is_ai_generated INTEGER NOT NULL DEFAULT 0,
-    published_at TEXT NOT NULL DEFAULT (datetime('now'))
-  )
+// Single source of truth for the table's shape. `type` is restricted to a
+// fixed set of categories at the database level via a CHECK constraint.
+const PIECES_COLUMNS = `
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  type TEXT NOT NULL CHECK(type IN ('poem', 'prose', 'essay', 'story', 'recipe', 'found')),
+  tags TEXT NOT NULL DEFAULT '',
+  is_ai_generated INTEGER NOT NULL DEFAULT 0,
+  published_at TEXT NOT NULL DEFAULT (datetime('now'))
 `
 
 console.log(`Connecting to ${url}`)
-await db.execute(SCHEMA)
+
+// Fresh databases get the up-to-date table immediately.
+await db.execute(`CREATE TABLE IF NOT EXISTS pieces (${PIECES_COLUMNS})`)
+
+// Migration: databases created before 'found' existed still carry the old
+// CHECK constraint, and SQLite can't ALTER a CHECK in place. So if the stored
+// table definition doesn't mention 'found', rebuild the table: copy the rows
+// into a correctly-shaped table, then swap it in. Wrapped in a batch so it
+// either fully succeeds or rolls back — the DB is never left half-migrated.
+const { rows: schemaRows } = await db.execute(
+  `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'pieces'`
+)
+const existingSql = schemaRows[0]?.sql
+
+if (existingSql && !String(existingSql).includes("'found'")) {
+  console.log("Migrating schema to allow the 'found' piece type...")
+  await db.batch(
+    [
+      `CREATE TABLE pieces_migrated (${PIECES_COLUMNS})`,
+      `INSERT INTO pieces_migrated SELECT * FROM pieces`,
+      `DROP TABLE pieces`,
+      `ALTER TABLE pieces_migrated RENAME TO pieces`,
+    ],
+    'write'
+  )
+  console.log('Migration complete.')
+}
+
 console.log('Schema ready.')
 
 if (process.argv.includes('--seed')) {

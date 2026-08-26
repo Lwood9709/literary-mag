@@ -4,8 +4,15 @@ import StarterKit from '@tiptap/starter-kit'
 import { useEffect, useReducer, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import type { Piece, PieceType } from '../types'
+import { fetchPoem } from '../lib/poetrydb'
 
-const TYPES: PieceType[] = ['poem', 'prose', 'essay', 'story', 'recipe']
+const TYPES: PieceType[] = ['poem', 'prose', 'essay', 'story', 'recipe', 'found']
+
+const MAX_LINES_OPTIONS = [
+  { label: '20 lines', value: 20 },
+  { label: '40 lines', value: 40 },
+  { label: 'any length', value: 0 },
+]
 
 const EMPTY: Omit<Piece, 'id' | 'published_at' | 'is_ai_generated'> = {
   title: '',
@@ -125,6 +132,11 @@ export default function Admin() {
   const [pieces, setPieces] = useState<Piece[]>([])
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0)
 
+  const [mood, setMood] = useState('')
+  const [maxLines, setMaxLines] = useState(20)
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState('')
+
   const editor = useEditor({
     extensions: [StarterKit],
     content: fields.body,
@@ -176,6 +188,38 @@ export default function Admin() {
   function lock() {
     store.set('')
     setPassword('')
+  }
+
+  async function findPoem() {
+    const hasDraft = fields.title.trim() || editor?.getText().trim()
+    if (hasDraft && !window.confirm('Replace the current draft with an imported poem?')) {
+      return
+    }
+
+    setImporting(true)
+    setImportError('')
+    const poem = await fetchPoem({ mood, maxLines: maxLines || undefined })
+    setImporting(false)
+
+    if (!poem) {
+      setImportError(
+        mood
+          ? `No poems found for "${mood}" — try another word.`
+          : 'Could not reach PoetryDB — try again.'
+      )
+      return
+    }
+
+    // Author names can contain commas ("George Gordon, Lord Byron"), which
+    // would split into bogus extra tags in the comma-separated tags field.
+    const authorTag = poem.author.replace(/,/g, '')
+    setFields({
+      title: poem.title,
+      body: poem.html,
+      type: 'found',
+      tags: [authorTag, 'poetrydb'].filter(Boolean).join(', '),
+    })
+    editor?.commands.setContent(poem.html)
   }
 
   /** Writes carry the shared secret; a 401 means it was wrong, so re-prompt. */
@@ -272,6 +316,45 @@ export default function Admin() {
         </aside>
 
         <section className="col-span-2 space-y-5">
+          <div className="rounded-lg border border-dashed border-sage/40 bg-sage-light/40 p-3 space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="text"
+                placeholder="mood or theme — e.g. moon, winter, sorrow"
+                value={mood}
+                onChange={(e) => setMood(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') findPoem() }}
+                className="flex-1 min-w-40 text-sm border-b border-sage/30 py-1.5 outline-none focus:border-sage bg-transparent placeholder:text-muted/50"
+              />
+              <select
+                value={maxLines}
+                onChange={(e) => setMaxLines(Number(e.target.value))}
+                className="text-xs border-b border-sage/30 bg-transparent text-forest-soft outline-none focus:border-sage"
+              >
+                {MAX_LINES_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={findPoem}
+                disabled={importing}
+                className="px-4 py-1.5 rounded-full text-xs tracking-wide border border-sage/40 text-forest-soft hover:bg-sage hover:text-white hover:border-sage disabled:opacity-40 transition-colors"
+              >
+                {importing ? 'Searching…' : 'Find a poem'}
+              </button>
+            </div>
+            <p className="text-xs text-muted">
+              Public-domain poems from{' '}
+              <a href="https://poetrydb.org" target="_blank" rel="noreferrer" className="underline hover:text-sage">
+                PoetryDB
+              </a>
+              , attributed to their original authors — not your own writing. Matches search
+              anywhere in the poem's text, so results can be loose.
+            </p>
+            {importError && <p className="text-xs text-blush-dark">{importError}</p>}
+          </div>
+
           <input
             type="text"
             placeholder="Title"

@@ -60,11 +60,16 @@ literary-mag/
 npm install
 cp .env.example .env.local     # then fill in the values
 npm run setup-db               # create the schema in Turso
-npm run dev                    # vercel dev — client + API on one origin
+vercel link                    # first time only, links this folder to the Vercel project
+vercel dev                     # client + API on one origin
 ```
 
-`vercel dev` serves the Vite app and the `api/` function together, so local development
-matches production: same origin, relative `/api/...` paths, no CORS.
+Run `vercel dev` directly, not through an npm script. Vercel's CLI refuses to start if a
+root `package.json` "dev" script literally reads `vercel dev`, since that would call
+itself. `vercel.json`'s `devCommand` tells it what to run instead
+(`cd client && npm run dev`, Vite's own dev server), and `vercel dev` proxies that
+alongside the `api/` function, so local development matches production: same origin,
+relative `/api/...` paths, no CORS.
 
 ### Environment Variables
 
@@ -107,10 +112,22 @@ Base path: `/api/pieces`
 | `PUT` | `/api/pieces/:id` | password | Update. Omitted fields keep their current value. |
 | `DELETE` | `/api/pieces/:id` | password | Delete. |
 
-`type` is one of `poem`, `prose`, `essay`, `story`, `recipe`.
+`type` is one of `poem`, `prose`, `essay`, `story`, `recipe`, `found`.
 
 Writes require an `x-admin-password` header matching `ADMIN_PASSWORD`; without it the API
 returns `401`. The comparison is constant-time (`crypto.timingSafeEqual`).
+
+### Importing poems (PoetryDB)
+
+`/admin` has a "Find a poem" import row backed by [PoetryDB](https://poetrydb.org), a free
+public-domain poetry API. It fetches a poem matching an optional one-word mood/theme
+(matched as a substring anywhere in the poem's text) and a max line count, then loads it
+into the editor for review — nothing is saved until you click Publish.
+
+Imported poems are saved as `type: 'found'`, kept distinct from original writing, and
+carry the original author both in the piece body and in the tags. The client
+(`client/src/lib/poetrydb.ts`) calls PoetryDB directly — it allows all origins via CORS, so
+no server-side proxy is needed.
 
 ---
 
@@ -139,9 +156,17 @@ One Vercel project builds and serves everything.
 | Output directory | `client/dist` |
 | Environment | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `ADMIN_PASSWORD` |
 
-`vercel.json` rewrites `/api/*` into the function and everything else into `index.html`
-so client-side routes (`/admin`, `/piece/:id`) resolve instead of 404ing. Order matters:
-the API rule must come first, or the SPA catch-all would swallow API requests.
+`vercel.json` rewrites `/api/*` into the function, and sends extensionless paths to
+`index.html` so client-side routes (`/admin`, `/piece/:id`) resolve instead of 404ing.
+
+Two details in that second rule are load-bearing:
+
+- **Order.** The API rule must come first, or the SPA rule would swallow API requests.
+- **`/((?!api/|@)[^.]*)`, not `/(.*)`.** A plain catch-all also matches the requests
+  Vite's dev server makes under `vercel dev` (`/src/main.tsx`, `/@vite/client`), handing
+  the browser HTML where it expects a JavaScript module. Vite then fails with
+  *"Failed to parse source for import analysis"*. Excluding `@`-prefixed paths and
+  anything containing a dot lets real files through and leaves only SPA routes rewritten.
 
 ### Why serverless
 

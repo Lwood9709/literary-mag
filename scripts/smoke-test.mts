@@ -27,7 +27,7 @@ await setup.execute(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     body TEXT NOT NULL,
-    type TEXT NOT NULL CHECK(type IN ('poem', 'prose', 'essay', 'story', 'recipe')),
+    type TEXT NOT NULL CHECK(type IN ('poem', 'prose', 'essay', 'story', 'recipe', 'found')),
     tags TEXT NOT NULL DEFAULT '',
     is_ai_generated INTEGER NOT NULL DEFAULT 0,
     published_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -90,6 +90,23 @@ check('POST correct password -> 201', r.status === 201, `got ${r.status} ${r.tex
 check('created row has an id', typeof r.json?.id === 'number', JSON.stringify(r.json))
 check('recipe type accepted', r.json?.type === 'recipe')
 const id = r.json?.id
+
+const foundDraft = {
+  title: 'Found Poem',
+  body: '<p>found text</p><p><em>— Some Author, via PoetryDB</em></p>',
+  type: 'found',
+  tags: 'Some Author, poetrydb',
+}
+r = await call('POST', '/api/pieces', { body: foundDraft, password: PASSWORD })
+check('POST type=found -> 201', r.status === 201, `got ${r.status} ${r.text}`)
+check('found type accepted', r.json?.type === 'found')
+const foundId = r.json?.id
+
+r = await call('GET', '/api/pieces?type=found')
+check('?type=found finds it', r.json?.length === 1, JSON.stringify(r.json))
+
+r = await call('DELETE', `/api/pieces/${foundId}`, { password: PASSWORD })
+check('cleanup: found piece deleted', r.status === 200, `got ${r.status}`)
 
 console.log('\nvalidation')
 r = await call('POST', '/api/pieces', { body: { title: 'x' }, password: PASSWORD })

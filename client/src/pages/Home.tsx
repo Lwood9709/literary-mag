@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import type { Piece, PieceType } from '../types'
 
-const TYPES: PieceType[] = ['poem', 'prose', 'essay', 'story', 'recipe']
+const TYPES: PieceType[] = ['poem', 'prose', 'essay', 'story', 'recipe', 'found']
 
 export default function Home() {
   const [pieces, setPieces] = useState<Piece[]>([])

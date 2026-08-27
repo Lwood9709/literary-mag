@@ -213,7 +213,7 @@ export default function Admin() {
                 </Link>
                 <button
                   onClick={() => deletePiece(p.id)}
-                  className="text-xs text-stone-300 hover:text-blush-dark ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="text-xs text-stone-300 hover:text-blush-dark ml-2 opacity-1 group-hover:opacity-100 transition-opacity"
                 >
                   ✕
                 </button>

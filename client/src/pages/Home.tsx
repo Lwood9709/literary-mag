@@ -101,9 +101,12 @@ export default function Home() {
         ))}
       </ul>
 
-      <footer className="mt-16 pt-6 border-t border-sage-light">
+      <footer className="mt-16 pt-6 border-t border-sage-light flex gap-4">
         <Link to="/colophon" className="text-xs text-muted hover:text-sage">
           Colophon
+        </Link>
+        <Link to="/demo" className="text-xs text-muted hover:text-sage">
+          Try the editor
         </Link>
       </footer>
     </main>

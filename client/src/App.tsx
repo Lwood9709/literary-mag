@@ -3,6 +3,7 @@ import Home from './pages/Home'
 import PiecePage from './pages/PiecePage'
 import Admin from './pages/Admin'
 import Colophon from './pages/Colophon'
+import Demo from './pages/Demo'
 
 export default function App() {
   return (
@@ -12,6 +13,7 @@ export default function App() {
         <Route path="/piece/:id" element={<PiecePage />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/colophon" element={<Colophon />} />
+        <Route path="/demo" element={<Demo />} />
       </Routes>
     </BrowserRouter>
   )

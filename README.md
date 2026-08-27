@@ -45,10 +45,12 @@ literary-mag/
 │       ├── db.ts        # Turso client and row mapping
 │       └── generate.ts  # Claude call + rate limit for AI generation
 ├── client/             # React + Vite frontend
-│   ├── src/pages/      # Home, PiecePage, Admin, Colophon
+│   ├── src/pages/      # Home, PiecePage, Admin, Colophon, Demo
+│   ├── src/components/ # PieceEditor — shared by /admin and the public /demo sandbox
+│   ├── src/lib/         # poetrydb.ts, demoContent.ts (mocked /demo generator output)
 │   └── public/tests/   # results.json + suite.mp4 — committed, read by /colophon
 ├── cypress/
-│   ├── e2e/            # browser specs (reading, admin, import, generate, race-condition, colophon)
+│   ├── e2e/            # reading, admin, import, generate, demo, race-condition, colophon
 │   └── support/        # custom commands (resetPieces, unlockAdmin)
 ├── scripts/
 │   ├── schema.mjs       # single source of truth for the pieces + ai_generations tables
@@ -188,6 +190,23 @@ spends real money per call:
 
 Generated pieces are marked `is_ai_generated: 1` automatically, no manual toggle involved,
 and render the "AI" badge already built into `Home.tsx` and `PiecePage.tsx`.
+
+### Trying the editor (`/demo`)
+
+`/demo` is a public, no-login sandbox of the exact same authoring surface — same
+component (`client/src/components/PieceEditor.tsx`), same TipTap editor, same PoetryDB
+import. `/admin` and `/demo` differ only in what they pass as the `onGenerate` and
+`onPublish` callbacks:
+
+- **"Generate with AI" is mocked** — it returns one of a few canned example pieces from
+  `client/src/lib/demoContent.ts`, never calling `POST /api/generate`. A public,
+  password-free button in front of a costed endpoint would share the 3/day cap with
+  every visitor, and could lock out real use of it. "Find a poem" (PoetryDB) stays real
+  in the demo — it's free and uncapped, so there's no reason to fake it.
+- **"Publish" never calls `POST /api/pieces`.** It renders an inline preview, styled like
+  the real `PiecePage`, under an unmistakable "nothing was published" banner — visitors
+  see the reading experience their draft would have produced without anything touching
+  Turso.
 
 ---
 

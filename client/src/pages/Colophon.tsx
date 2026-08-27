@@ -58,8 +58,7 @@ export default function Colophon() {
           the line.
         </p>
         <p>
-          Set in <strong>Fraunces</strong> for headings and prose, <strong>Inter</strong>{' '}
-          for interface text. The frontend is a typed React and TypeScript app talking to a{' '}
+          The frontend is a typed React and TypeScript app talking to a{' '}
           <a href="https://hono.dev" target="_blank" rel="noreferrer">Hono</a> API on a single
           Vercel Function; the database is{' '}
           <a href="https://turso.tech" target="_blank" rel="noreferrer">Turso</a>, a hosted

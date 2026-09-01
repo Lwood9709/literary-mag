@@ -85,6 +85,37 @@ itself. `vercel.json`'s `devCommand` tells it what to run instead
 alongside the `api/` function, so local development matches production: same origin,
 relative `/api/...` paths, no CORS.
 
+### Databases
+
+Two Turso databases, one per environment.
+
+| Database | Used by | Holds |
+| --- | --- | --- |
+| `litmag-dev` | `.env.local`, every local script, `vercel dev` | sample content |
+| `litmag-lwood9709` | Vercel Production | the real collection |
+
+They were the same database until the split, which meant every local
+experiment wrote to the live site. Point `.env.local` at dev and keep it there.
+
+Changing `.env.local` alone is not enough for `vercel dev`. Its Function
+sandbox reads the Development-scoped variables from Vercel, not your local
+file, so both have to move together:
+
+```bash
+vercel env rm TURSO_DATABASE_URL development --yes
+printf '%s' "libsql://litmag-dev-….turso.io" | vercel env add TURSO_DATABASE_URL development
+```
+
+To work against production deliberately, pull its credentials rather than
+editing `.env.local`:
+
+```bash
+vercel env pull .env.production.local --environment=production
+```
+
+A Turso auth token is scoped to one database. A production token returns
+`401` against dev, which is the failure to expect if you reuse one.
+
 ### Environment Variables
 
 | Variable | Purpose |

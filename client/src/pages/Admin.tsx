@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
-import type { Piece, PieceType } from '../types'
+import type { Piece, PieceList, PieceType } from '../types'
 import PieceEditor, { type PieceFields } from '../components/PieceEditor'
 
 const PASSWORD_KEY = 'literary-mag:admin-password'
@@ -74,11 +74,13 @@ export default function Admin() {
   const [editingFields, setEditingFields] = useState<PieceFields | undefined>(undefined)
   const [loadingEdit, setLoadingEdit] = useState(false)
 
+  // pageSize=100 because this sidebar is a nav list, not a feed. Home
+  // paginates at 10; the editor wants every piece reachable in one click.
   useEffect(() => {
     let ignore = false
-    fetch('/api/pieces')
+    fetch('/api/pieces?pageSize=100')
       .then((r) => r.json())
-      .then((data: Piece[]) => { if (!ignore) setPieces(data) })
+      .then((data: PieceList) => { if (!ignore) setPieces(data.pieces) })
     return () => { ignore = true }
   }, [])
 
@@ -162,7 +164,9 @@ export default function Admin() {
     }
   }
 
-  async function deletePiece(id: number) {
+  /** Immediate and unrecoverable, so it asks first. */
+  async function deletePiece(id: number, title: string) {
+    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return
     const res = await authedFetch(`/api/pieces/${id}`, { method: 'DELETE' })
     if (!res.ok) return
     setPieces((ps) => ps.filter((p) => p.id !== id))
@@ -212,8 +216,10 @@ export default function Admin() {
                   {p.title}
                 </Link>
                 <button
-                  onClick={() => deletePiece(p.id)}
-                  className="text-xs text-stone-300 hover:text-blush-dark ml-2 opacity-1 group-hover:opacity-100 transition-opacity"
+                  onClick={() => deletePiece(p.id, p.title)}
+                  aria-label={`Delete ${p.title}`}
+                  title={`Delete ${p.title}`}
+                  className="text-xs text-muted hover:text-blush-dark ml-2 px-1 rounded transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-blush-dark"
                 >
                   ✕
                 </button>

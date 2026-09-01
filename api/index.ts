@@ -44,6 +44,20 @@ app.on(['POST', 'PUT', 'DELETE'], '/pieces', requireAdmin)
 // it doesn't itself touch the pieces table.
 app.on(['POST'], '/generate', requireAdmin)
 
+const DEFAULT_PAGE_SIZE = 10
+const MAX_PAGE_SIZE = 100
+
+/**
+ * Query params arrive as strings and can be anything at all. Parse to a
+ * positive integer, fall back when absent or junk, clamp so a caller can't
+ * ask for the whole table with ?pageSize=100000.
+ */
+function positiveInt(raw: string | undefined, fallback: number, max: number): number {
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n < 1) return fallback
+  return Math.min(n, max)
+}
+
 app.get('/pieces', async (c) => {
   const { type, tag } = c.req.query()
   const conditions: string[] = []
@@ -59,10 +73,29 @@ app.get('/pieces', async (c) => {
   }
 
   const where = conditions.length ? ` WHERE ${conditions.join(' AND ')}` : ''
-  const sql = `SELECT * FROM pieces${where} ORDER BY published_at DESC`
 
-  const { rows } = await db.execute({ sql, args })
-  return c.json(rows.map(toPiece))
+  // Counted with the same WHERE so the page count reflects the active filter,
+  // not the whole table.
+  const { rows: countRows } = await db.execute({
+    sql: `SELECT COUNT(*) AS n FROM pieces${where}`,
+    args,
+  })
+  const total = Number(countRows[0]?.n ?? 0)
+
+  const pageSize = positiveInt(c.req.query('pageSize'), DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE)
+  const lastPage = Math.max(1, Math.ceil(total / pageSize))
+  // Clamped rather than 404'd: asking past the end lands on the last page.
+  const page = Math.min(positiveInt(c.req.query('page'), 1, Number.MAX_SAFE_INTEGER), lastPage)
+
+  // `id DESC` is not decoration. published_at has second granularity, so
+  // pieces saved in the same second tie, and OFFSET over an unstable sort can
+  // skip or repeat rows between pages. The id breaks every tie.
+  const { rows } = await db.execute({
+    sql: `SELECT * FROM pieces${where} ORDER BY published_at DESC, id DESC LIMIT ? OFFSET ?`,
+    args: [...args, pageSize, (page - 1) * pageSize],
+  })
+
+  return c.json({ pieces: rows.map(toPiece), total, page, pageSize })
 })
 
 app.get('/pieces/:id', async (c) => {

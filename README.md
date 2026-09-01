@@ -126,6 +126,23 @@ secrets, safe to run anywhere including CI. `cypress/e2e/race-condition.cy.ts` i
 genuine regression test: it forces an earlier request to resolve after a later one via
 `cy.intercept`, and fails if the `ignore`-flag cleanup in `Home.tsx` is ever removed.
 
+### Sample content
+
+```bash
+npm run seed-samples                   # dry run, prints what it would insert
+npm run seed-samples -- --write        # insert 16 sample pieces
+npm run seed-samples:undo -- --write   # remove exactly those 16
+```
+
+Sixteen short pieces across five types, enough to exercise pagination and the type
+filters. The list lives in `scripts/sample-pieces.mjs` and both directions read it, so
+undo can never miss a row the seeder added. Re-running the insert skips titles already
+present.
+
+It targets whatever `TURSO_DATABASE_URL` points at, which locally is production. The
+default is a dry run and the target URL is printed every time, so writing takes an
+explicit `--write`.
+
 Each `npm run test:e2e` run regenerates `client/public/tests/results.json` and
 `suite.mp4`, which the `/colophon` page reads to show real, current test results — not a
 hand-maintained list. Commit those two files after a run you want reflected there; they
@@ -146,7 +163,7 @@ Base path: `/api/pieces`
 
 | Method | Endpoint | Auth | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/pieces` | public | List pieces. Optional `?type=` and `?tag=` filters. |
+| `GET` | `/api/pieces` | public | List pieces, paged. Optional `?type=`, `?tag=`, `?page=`, `?pageSize=`. |
 | `GET` | `/api/pieces/:id` | public | Fetch a single piece. |
 | `POST` | `/api/pieces` | password | Create. Body: `{ title, body, type, tags?, is_ai_generated? }`. |
 | `PUT` | `/api/pieces/:id` | password | Update. Omitted fields keep their current value. |
@@ -154,6 +171,30 @@ Base path: `/api/pieces`
 | `POST` | `/api/generate` | password | Draft a piece with Claude. Body: `{ type, mood? }`. Returns `{ title, body }`. `429` past the daily cap. |
 
 `type` is one of `poem`, `prose`, `essay`, `story`, `recipe`, `found`.
+
+### Pagination
+
+`GET /api/pieces` returns an envelope, not a bare array:
+
+```json
+{ "pieces": [ ... ], "total": 42, "page": 2, "pageSize": 10 }
+```
+
+`pageSize` defaults to 10 and is capped at 100. `total` counts rows matching the active
+filter, so page counts stay correct while a filter is on. Asking for a page past the end
+returns the last page rather than an empty list.
+
+This is offset pagination (`LIMIT`/`OFFSET`), chosen over keyset because real page
+numbers matter more here than the failure mode offset has at scale: rows shifting between
+requests can make a page skip or repeat an entry. With one author and a few dozen pieces
+that does not happen in practice.
+
+Offset does require a total sort order, though. `published_at` is `datetime('now')`, so
+pieces saved in the same second tie, and `OFFSET` over an unstable sort genuinely can
+drop or duplicate rows. `ORDER BY published_at DESC, id DESC` breaks every tie.
+
+The admin sidebar requests `?pageSize=100`, because it is a navigation list rather than a
+feed and every piece should be one click away.
 
 Writes require an `x-admin-password` header matching `ADMIN_PASSWORD`; without it the API
 returns `401`. The comparison is constant-time (`crypto.timingSafeEqual`).

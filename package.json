@@ -11,7 +11,9 @@
     "test:server": "tsx scripts/test-server.mts",
     "test:e2e": "start-server-and-test test:server http://localhost:4173 \"cypress run\"",
     "test:e2e:open": "start-server-and-test test:server http://localhost:4173 \"cypress open\"",
-    "test:all": "npm run test:api && npm run test:e2e"
+    "test:all": "npm run test:api && npm run test:e2e",
+    "seed-samples": "node scripts/seed-samples.mjs",
+    "seed-samples:undo": "node scripts/seed-samples.mjs --undo"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.121.0",

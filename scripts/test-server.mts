@@ -33,7 +33,19 @@ process.env.ADMIN_PASSWORD = TEST_PASSWORD
 
 const db = createClient({ url: 'file:' + DB_FILE })
 
+// The first ten exist so the public list has more than one page at the
+// default page size of 10. They are inserted first, so the four named
+// fixtures below keep the highest ids and stay on page 1, where
+// reading.cy.ts expects to find them.
+const FILLER = Array.from({ length: 10 }, (_, i) => ({
+  title: `Filler Piece ${String(i + 1).padStart(2, '0')}`,
+  body: `<p>Placeholder body number ${i + 1}.</p>`,
+  type: 'prose',
+  tags: 'filler',
+}))
+
 const FIXTURES = [
+  ...FILLER,
   {
     title: 'The Quiet Hour',
     body: '<p>Light moves slowly across the floor.</p>',

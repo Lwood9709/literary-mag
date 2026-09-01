@@ -1,32 +1,68 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import type { Piece, PieceType } from '../types'
+import type { Piece, PieceList, PieceType } from '../types'
 
 const TYPES: PieceType[] = ['poem', 'prose', 'essay', 'story', 'recipe', 'found']
 
 export default function Home() {
   const [pieces, setPieces] = useState<Piece[]>([])
+  const [total, setTotal] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
   const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
+
   const activeType = searchParams.get('type') ?? ''
+  const requestedPage = Math.max(1, Number(searchParams.get('page')) || 1)
 
   useEffect(() => {
     let ignore = false
     setLoading(true)
-    const params = activeType ? `?type=${activeType}` : ''
-    fetch(`/api/pieces${params}`)
-      .then((r) => r.json())
-      .then((data) => { if (!ignore) setPieces(data) })
+    setFailed(false)
+
+    const params = new URLSearchParams()
+    if (activeType) params.set('type', activeType)
+    params.set('page', String(requestedPage))
+
+    fetch(`/api/pieces?${params}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`GET /api/pieces returned ${r.status}`)
+        return r.json()
+      })
+      .then((data: PieceList) => {
+        if (ignore) return
+        setPieces(data.pieces)
+        setTotal(data.total)
+        setPageSize(data.pageSize)
+      })
+      .catch(() => {
+        if (ignore) return
+        setPieces([])
+        setTotal(0)
+        setFailed(true)
+      })
       .finally(() => { if (!ignore) setLoading(false) })
+
     return () => { ignore = true }
-  }, [activeType])
+  }, [activeType, requestedPage])
+
+  const lastPage = Math.max(1, Math.ceil(total / pageSize))
+  const page = Math.min(requestedPage, lastPage)
 
   function setFilter(type: string) {
-    if (type === activeType) {
-      setSearchParams({})
-    } else {
-      setSearchParams({ type })
-    }
+    // Dropping every param also drops ?page, so changing the filter always
+    // lands on page 1. Staying on page 4 of a filter with two pages would
+    // render an empty list.
+    if (type === activeType) setSearchParams({})
+    else setSearchParams({ type })
+  }
+
+  function goToPage(next: number) {
+    const params = new URLSearchParams()
+    if (activeType) params.set('type', activeType)
+    if (next > 1) params.set('page', String(next))
+    setSearchParams(params)
+    window.scrollTo({ top: 0 })
   }
 
   return (
@@ -59,7 +95,13 @@ export default function Home() {
 
       {loading && <p className="text-muted text-sm">Loading…</p>}
 
-      {!loading && pieces.length === 0 && (
+      {!loading && failed && (
+        <p className="text-sm text-blush-dark">
+          Could not load the collection. Try again in a moment.
+        </p>
+      )}
+
+      {!loading && !failed && pieces.length === 0 && (
         <p className="text-muted text-sm">
           No pieces yet.{' '}
           <Link to="/admin" className="text-sage underline underline-offset-2">
@@ -100,6 +142,28 @@ export default function Home() {
           </li>
         ))}
       </ul>
+
+      {!loading && !failed && lastPage > 1 && (
+        <nav aria-label="Pagination" className="mt-10 flex items-center justify-between">
+          <button
+            onClick={() => goToPage(page - 1)}
+            disabled={page <= 1}
+            className="text-sm text-sage hover:text-sage-dark disabled:text-muted/40 disabled:cursor-default"
+          >
+            ← Newer
+          </button>
+          <span className="text-xs text-muted tracking-wide">
+            Page {page} of {lastPage}
+          </span>
+          <button
+            onClick={() => goToPage(page + 1)}
+            disabled={page >= lastPage}
+            className="text-sm text-sage hover:text-sage-dark disabled:text-muted/40 disabled:cursor-default"
+          >
+            Older →
+          </button>
+        </nav>
+      )}
 
       <footer className="mt-16 pt-6 border-t border-sage-light flex gap-4">
         <Link to="/colophon" className="text-xs text-muted hover:text-sage">

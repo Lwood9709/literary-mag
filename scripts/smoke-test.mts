@@ -62,8 +62,11 @@ async function call(
 console.log('\nreads are public')
 let r = await call('GET', '/api/pieces')
 check('GET /api/pieces -> 200', r.status === 200, `got ${r.status} ${r.text}`)
-check('returns an array', Array.isArray(r.json), JSON.stringify(r.json))
-check('starts empty', r.json?.length === 0)
+check('returns a paged envelope', Array.isArray(r.json?.pieces), JSON.stringify(r.json))
+check('starts empty', r.json?.pieces.length === 0)
+check('total starts at zero', r.json?.total === 0)
+check('defaults to page 1', r.json?.page === 1)
+check('defaults to a page size of 10', r.json?.pageSize === 10)
 
 console.log('\nwrites require the password')
 const draft = { title: 'Test Piece', body: '<p>hello</p>', type: 'recipe', tags: 'a,b' }
@@ -95,7 +98,7 @@ check('found type accepted', r.json?.type === 'found')
 const foundId = r.json?.id
 
 r = await call('GET', '/api/pieces?type=found')
-check('?type=found finds it', r.json?.length === 1, JSON.stringify(r.json))
+check('?type=found finds it', r.json?.pieces.length === 1, JSON.stringify(r.json))
 
 r = await call('DELETE', `/api/pieces/${foundId}`, { password: PASSWORD })
 check('cleanup: found piece deleted', r.status === 200, `got ${r.status}`)
@@ -115,11 +118,12 @@ check('GET missing id -> 404', r.status === 404, `got ${r.status}`)
 
 console.log('\nfilters')
 r = await call('GET', '/api/pieces?type=recipe')
-check('?type=recipe finds it', r.json?.length === 1, JSON.stringify(r.json))
+check('?type=recipe finds it', r.json?.pieces.length === 1, JSON.stringify(r.json))
 r = await call('GET', '/api/pieces?type=poem')
-check('?type=poem excludes it', r.json?.length === 0)
+check('?type=poem excludes it', r.json?.pieces.length === 0)
+check('total tracks the filter, not the table', r.json?.total === 0)
 r = await call('GET', '/api/pieces?tag=b')
-check('?tag=b finds it', r.json?.length === 1)
+check('?tag=b finds it', r.json?.pieces.length === 1)
 
 console.log('\nupdate')
 r = await call('PUT', `/api/pieces/${id}`, { body: { title: 'Renamed' } })

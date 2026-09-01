@@ -72,8 +72,8 @@ function check(name: string, ok: boolean, detail = '') {
 
 let r = await send('GET', '/api/pieces')
 check('GET /api/pieces reaches the database', r.status === 200, `got ${r.status}: ${r.text.slice(0, 200)}`)
-check('returns an array', Array.isArray(r.json), r.text.slice(0, 200))
-const before = Array.isArray(r.json) ? r.json.length : -1
+check('returns a paged envelope', Array.isArray(r.json?.pieces), r.text.slice(0, 200))
+const before = typeof r.json?.total === 'number' ? r.json.total : -1
 console.log(`        (${before} piece(s) currently stored)`)
 
 r = await send('POST', '/api/pieces', { body: { title: 'x', body: '<p>x</p>', type: 'poem' } })
@@ -100,7 +100,7 @@ if (!password) {
 }
 
 r = await send('GET', '/api/pieces')
-const after = Array.isArray(r.json) ? r.json.length : -1
+const after = typeof r.json?.total === 'number' ? r.json.total : -1
 check('database left as found', after === before, `before ${before}, after ${after}`)
 
 console.log(`\n${pass} passed, ${fail} failed\n`)

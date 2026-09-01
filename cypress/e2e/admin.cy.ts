@@ -41,7 +41,9 @@ describe('admin', () => {
 
   it('deletes a piece from the sidebar', () => {
     cy.unlockAdmin()
-    cy.contains('li', 'Winter Soup').find('button').click({ force: true })
+    // No { force: true }: the delete button used to be invisible, and clicking
+    // it unforced is what proves it is actually reachable.
+    cy.contains('li', 'Winter Soup').find('button').click()
     cy.contains('Winter Soup').should('not.exist')
 
     cy.visit('/')

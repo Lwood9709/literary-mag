@@ -67,6 +67,11 @@ describe('public editor demo', () => {
     cy.get('@publishSpy.all').should('have.length', 0)
   })
 
+  it('has no delete control at all', () => {
+    cy.visit('/demo')
+    cy.contains('button', 'Delete this piece').should('not.exist')
+  })
+
   it('links back to the real magazine', () => {
     cy.visit('/demo')
     cy.contains('a', 'See the real magazine').click()

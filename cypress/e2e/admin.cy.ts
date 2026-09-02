@@ -39,6 +39,24 @@ describe('admin', () => {
     cy.contains('A Brand New Piece')
   })
 
+  it('deletes the piece being edited, from the editor itself', () => {
+    cy.unlockAdmin()
+    cy.contains('aside a', 'Winter Soup').click()
+    cy.get('input[placeholder="Title"]').should('have.value', 'Winter Soup')
+
+    cy.contains('button', 'Delete this piece').click()
+
+    cy.location('search').should('eq', '')
+    cy.contains('aside', 'Winter Soup').should('not.exist')
+    cy.visit('/')
+    cy.contains('Winter Soup').should('not.exist')
+  })
+
+  it('offers no delete control on a new draft', () => {
+    cy.unlockAdmin()
+    cy.contains('button', 'Delete this piece').should('not.exist')
+  })
+
   it('deletes a piece from the sidebar', () => {
     cy.unlockAdmin()
     // No { force: true }: the delete button used to be invisible, and clicking

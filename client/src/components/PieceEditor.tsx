@@ -69,6 +69,8 @@ export type PieceEditorProps = {
   onGenerate: (type: PieceType, mood?: string) => Promise<{ title: string; body: string }>
   /** Whatever happens next (navigate, show a preview, ...) is the caller's job. */
   onPublish: (fields: PieceFields) => Promise<void>
+  /** Omit to hide the delete control entirely. /demo never passes one. */
+  onDelete?: () => Promise<void>
   publishLabel?: string
 }
 
@@ -82,10 +84,12 @@ export default function PieceEditor({
   initialFields,
   onGenerate,
   onPublish,
+  onDelete,
   publishLabel = 'Publish',
 }: PieceEditorProps) {
   const [fields, setFields] = useState<PieceFields>(initialFields ?? EMPTY_PIECE)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0)
 
   const [mood, setMood] = useState('')
@@ -272,7 +276,21 @@ export default function PieceEditor({
         className="w-full text-sm border-b border-sage/30 py-2 outline-none focus:border-sage bg-transparent text-forest-soft placeholder:text-muted/50"
       />
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        {onDelete ? (
+          <button
+            onClick={async () => {
+              setDeleting(true)
+              try { await onDelete() } finally { setDeleting(false) }
+            }}
+            disabled={saving || deleting}
+            className="text-sm text-muted hover:text-blush-dark transition-colors disabled:opacity-40"
+          >
+            {deleting ? 'Deleting…' : 'Delete this piece'}
+          </button>
+        ) : (
+          <span />
+        )}
         <button
           onClick={save}
           disabled={saving || !fields.title || !fields.body}

@@ -238,6 +238,11 @@ export default function Admin() {
               publishLabel={editId ? 'Update' : 'Publish'}
               onGenerate={handleGenerate}
               onPublish={handlePublish}
+              onDelete={
+                editId
+                  ? () => deletePiece(Number(editId), editingFields?.title ?? 'this piece')
+                  : undefined
+              }
             />
           )}
         </div>

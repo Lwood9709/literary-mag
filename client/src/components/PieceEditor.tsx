@@ -231,7 +231,7 @@ export default function PieceEditor({
           </a>
           , attributed to its original author. <strong>Generate with AI</strong> drafts an
           original piece of the selected type with Claude, using the mood above as an
-          optional prompt — capped at 3 generations a day.
+          optional prompt.
         </p>
         {importError && <p className="text-xs text-blush-dark">{importError}</p>}
         {generateError && <p className="text-xs text-blush-dark">{generateError}</p>}

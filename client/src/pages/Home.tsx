@@ -69,7 +69,6 @@ export default function Home() {
     <main className="max-w-2xl mx-auto px-6 py-16">
       <header className="mb-10">
         <h1 className="text-5xl font-serif text-forest tracking-tight">Literary Mag</h1>
-        <p className="mt-2 text-muted font-serif italic text-lg">A personal collection</p>
         <div className="mt-6 flex items-center gap-3 text-sage">
           <span className="h-px w-10 bg-sage/40" />
           <span aria-hidden>❧</span>

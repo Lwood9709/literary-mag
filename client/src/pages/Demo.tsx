@@ -33,14 +33,11 @@ export default function Demo() {
         ← Back
       </Link>
 
-      <p className="eyebrow text-xs font-semibold text-sage uppercase tracking-wide mb-2">
-        Try it yourself
-      </p>
-      <h1 className="text-4xl font-serif text-forest mb-2">The editor, unlocked</h1>
+      <h1 className="text-4xl font-serif text-forest mb-3">Demo editor</h1>
       <p className="text-muted text-sm mb-6 max-w-lg">
-        This is the same authoring surface used to write everything in the collection —
-        the rich-text editor, the PoetryDB import, the AI draft button. Nothing you do
-        here is published: "Publish" renders a preview below instead of saving anything.
+        This is the editor used to write the collection. Nothing here is published.
+        Publishing renders a preview below instead, so you can see how a piece would
+        turn out.
       </p>
 
       <Link

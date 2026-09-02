@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-09-02T19:27:56.421Z",
+  "generatedAt": "2026-09-02T19:39:11.108Z",
   "totalTests": 33,
   "totalPassed": 33,
   "totalFailed": 0,
-  "totalDuration": 20692,
+  "totalDuration": 20559,
   "specs": [
     {
       "spec": "admin.cy.ts",
@@ -11,32 +11,32 @@
         {
           "title": "admin > shows the lock screen at /admin",
           "state": "passed",
-          "duration": 769
+          "duration": 770
         },
         {
           "title": "admin > rejects a wrong password when attempting to publish",
           "state": "passed",
-          "duration": 2048
+          "duration": 1727
         },
         {
           "title": "admin > publishes a new piece with the correct password",
           "state": "passed",
-          "duration": 1532
+          "duration": 1511
         },
         {
           "title": "admin > deletes the piece being edited, from the editor itself",
           "state": "passed",
-          "duration": 747
+          "duration": 706
         },
         {
           "title": "admin > offers no delete control on a new draft",
           "state": "passed",
-          "duration": 513
+          "duration": 562
         },
         {
           "title": "admin > deletes a piece from the sidebar",
           "state": "passed",
-          "duration": 651
+          "duration": 644
         }
       ]
     },
@@ -46,12 +46,12 @@
         {
           "title": "colophon > is reachable from the home page footer",
           "state": "passed",
-          "duration": 402
+          "duration": 364
         },
         {
           "title": "colophon > renders real test results and the recording",
           "state": "passed",
-          "duration": 66
+          "duration": 61
         }
       ]
     },
@@ -61,32 +61,32 @@
         {
           "title": "public editor demo > is usable immediately, with no password prompt",
           "state": "passed",
-          "duration": 296
+          "duration": 270
         },
         {
           "title": "public editor demo > generates a mocked piece without ever calling /api/generate",
           "state": "passed",
-          "duration": 804
+          "duration": 790
         },
         {
           "title": "public editor demo > still runs the real PoetryDB flow, unaffected by the mock",
           "state": "passed",
-          "duration": 705
+          "duration": 719
         },
         {
           "title": "public editor demo > publishing shows a preview and never calls POST /api/pieces",
           "state": "passed",
-          "duration": 1250
+          "duration": 1230
         },
         {
           "title": "public editor demo > has no delete control at all",
           "state": "passed",
-          "duration": 171
+          "duration": 160
         },
         {
           "title": "public editor demo > links back to the real magazine",
           "state": "passed",
-          "duration": 237
+          "duration": 229
         },
         {
           "title": "public editor demo > is reachable from the home page footer",
@@ -101,22 +101,22 @@
         {
           "title": "AI generation > fills the editor and auto-flags the piece, shown as the badge once published",
           "state": "passed",
-          "duration": 1088
+          "duration": 1478
         },
         {
           "title": "AI generation > shows the rate-limit message on a 429 without crashing",
           "state": "passed",
-          "duration": 595
+          "duration": 582
         },
         {
           "title": "AI generation > disables generation for the found type, reserved for real imports",
           "state": "passed",
-          "duration": 606
+          "duration": 590
         },
         {
           "title": "AI generation > does not flag a hand-written piece as AI-generated",
           "state": "passed",
-          "duration": 1451
+          "duration": 1468
         }
       ]
     },
@@ -126,12 +126,12 @@
         {
           "title": "poetry import > fills the editor with an imported poem",
           "state": "passed",
-          "duration": 986
+          "duration": 903
         },
         {
           "title": "poetry import > shows an inline error when PoetryDB has no match, without crashing",
           "state": "passed",
-          "duration": 905
+          "duration": 889
         }
       ]
     },
@@ -141,7 +141,7 @@
         {
           "title": "pagination > shows one page worth of pieces and reports the page count",
           "state": "passed",
-          "duration": 254
+          "duration": 273
         },
         {
           "title": "pagination > cannot go back from the first page",
@@ -151,27 +151,27 @@
         {
           "title": "pagination > advances to the second page and back",
           "state": "passed",
-          "duration": 333
+          "duration": 334
         },
         {
           "title": "pagination > serves page 2 directly from the URL",
           "state": "passed",
-          "duration": 151
+          "duration": 164
         },
         {
           "title": "pagination > no piece appears on both pages",
           "state": "passed",
-          "duration": 210
+          "duration": 208
         },
         {
           "title": "pagination > drops the page when the filter changes",
           "state": "passed",
-          "duration": 258
+          "duration": 245
         },
         {
           "title": "pagination > hides the controls when a filter fits on one page",
           "state": "passed",
-          "duration": 204
+          "duration": 211
         }
       ]
     },
@@ -181,7 +181,7 @@
         {
           "title": "race condition guard > a slow earlier response cannot overwrite a faster later one",
           "state": "passed",
-          "duration": 1882
+          "duration": 1889
         }
       ]
     },
@@ -191,22 +191,22 @@
         {
           "title": "reading the magazine > lists pieces on load",
           "state": "passed",
-          "duration": 272
+          "duration": 265
         },
         {
           "title": "reading the magazine > filters by type and updates the URL",
           "state": "passed",
-          "duration": 331
+          "duration": 327
         },
         {
           "title": "reading the magazine > opens a piece and renders its body",
           "state": "passed",
-          "duration": 217
+          "duration": 230
         },
         {
           "title": "reading the magazine > shows attribution on a found piece",
           "state": "passed",
-          "duration": 287
+          "duration": 293
         }
       ]
     }

@@ -47,24 +47,21 @@ export default function Colophon() {
           This is a publishing platform for poems, essays, and a small contributed-recipe
           section, built around a{' '}
           <a href="https://tiptap.dev" target="_blank" rel="noreferrer">TipTap</a> rich-text
-          editor on one side and a plain, typography-first reading view on the other. The
-          same tool that drafts a piece is the one that publishes it.
+          editor on one side and a plain, typography-first reading view on the other.
         </p>
         <p>
           Some pieces are typed by hand. Others begin as a prompt to Claude, or arrive from{' '}
           <a href="https://poetrydb.org" target="_blank" rel="noreferrer">PoetryDB</a>'s
-          catalogue of public-domain poetry. Either way, nothing goes live without a human
-          reviewing it first, and the collection marks which is which rather than blurring
-          the line.
+          catalogue of public-domain poetry. The collection marks which is which rather
+          than blurring the line.
         </p>
         <p>
           The frontend is a typed React and TypeScript app talking to a{' '}
           <a href="https://hono.dev" target="_blank" rel="noreferrer">Hono</a> API on a single
           Vercel Function; the database is{' '}
           <a href="https://turso.tech" target="_blank" rel="noreferrer">Turso</a>, a hosted
-          libSQL store. Client and API share one origin, so there is no CORS to configure,
-          and nothing runs or costs anything between requests. Every push builds and deploys
-          through a Git-based CI/CD pipeline before it reaches the live site.
+          libSQL store. Every push builds and deploys through a Git-based CI/CD pipeline
+          before it reaches the live site.
         </p>
       </article>
 
@@ -129,7 +126,7 @@ export default function Colophon() {
           >
             GitHub Actions
           </a>{' '}
-          on every push, against a throwaway local database — never against the live site.
+          on every push, against a throwaway local database.
         </p>
       </div>
     </main>

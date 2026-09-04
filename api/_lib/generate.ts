@@ -22,7 +22,8 @@ export async function logGeneration(): Promise<void> {
 
 const SYSTEM_PROMPT = `You write original short pieces for a literary magazine. Given a
 piece type and an optional mood or theme, write one complete, publication-ready piece in
-that type — genuinely creative, not a placeholder or an outline.
+that type — genuinely creative, not a placeholder or an outline. If provided, the mood or theme should meaningfully influence the piece. 
+Do not be too literal or on the nose, but rather use the mood or theme to inspire the piece.
 
 "body" must be HTML using only these tags: <p>, <br>, <h2>, <h3>, <strong>, <em>,
 <blockquote>, <ul>, <ol>, <li>. No other tags, no markdown, no attributes.`

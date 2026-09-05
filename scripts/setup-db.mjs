@@ -16,7 +16,12 @@ import { createClient } from '@libsql/client'
 import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { PIECES_COLUMNS, AI_GENERATIONS_COLUMNS } from './schema.mjs'
+import {
+  PIECES_COLUMNS,
+  AI_GENERATIONS_COLUMNS,
+  FTS_STATEMENTS,
+  toSearchText,
+} from './schema.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const envPath = path.join(__dirname, '..', '.env.local')
@@ -72,6 +77,42 @@ if (existingSql && !String(existingSql).includes("'found'")) {
   )
   console.log('Migration complete.')
 }
+
+// Databases created before search existed have no search_text column.
+// SQLite can ALTER TABLE ADD COLUMN in place, unlike changing a CHECK.
+const { rows: cols } = await db.execute('PRAGMA table_info(pieces)')
+if (!cols.some((c) => String(c.name) === 'search_text')) {
+  console.log('Adding search_text column...')
+  await db.execute("ALTER TABLE pieces ADD COLUMN search_text TEXT NOT NULL DEFAULT ''")
+}
+
+// Backfill happens in JS because stripping HTML is not something SQLite can
+// do. Only rows whose stored text is stale get written.
+const { rows: allRows } = await db.execute('SELECT id, title, body, tags, search_text FROM pieces')
+const stale = allRows
+  .map((r) => ({ id: Number(r.id), want: toSearchText(r.title, r.body, r.tags), have: String(r.search_text ?? '') }))
+  .filter((r) => r.want !== r.have)
+
+if (stale.length) {
+  console.log(`Backfilling search_text for ${stale.length} piece(s)...`)
+  await db.batch(
+    stale.map((r) => ({
+      sql: 'UPDATE pieces SET search_text = ? WHERE id = ?',
+      args: [r.want, r.id],
+    })),
+    'write'
+  )
+}
+
+for (const sql of FTS_STATEMENTS) await db.execute(sql)
+
+// 'rebuild' regenerates the whole index from the content table. Idempotent,
+// so re-running this script always leaves the index matching the rows rather
+// than depending on what state it was already in.
+await db.execute("INSERT INTO pieces_fts(pieces_fts) VALUES('rebuild')")
+
+const { rows: idx } = await db.execute('SELECT COUNT(*) AS n FROM pieces_fts')
+console.log(`Search index ready (${idx[0].n} row(s) indexed).`)
 
 console.log('Schema ready.')
 

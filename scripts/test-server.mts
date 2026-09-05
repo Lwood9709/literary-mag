@@ -14,7 +14,7 @@ import { Hono } from 'hono'
 import { rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { PIECES_COLUMNS, AI_GENERATIONS_COLUMNS } from './schema.mjs'
+import { PIECES_COLUMNS, AI_GENERATIONS_COLUMNS, FTS_STATEMENTS, toSearchText } from './schema.mjs'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DB_FILE = path.join(root, '.cypress.db').replace(/\\/g, '/')
@@ -76,14 +76,16 @@ async function reseed() {
   await db.execute('DELETE FROM pieces')
   for (const f of FIXTURES) {
     await db.execute({
-      sql: 'INSERT INTO pieces (title, body, type, tags) VALUES (?, ?, ?, ?)',
-      args: [f.title, f.body, f.type, f.tags],
+      sql: `INSERT INTO pieces (title, body, type, tags, search_text)
+            VALUES (?, ?, ?, ?, ?)`,
+      args: [f.title, f.body, f.type, f.tags, toSearchText(f.title, f.body, f.tags)],
     })
   }
 }
 
 await db.execute(`CREATE TABLE IF NOT EXISTS pieces (${PIECES_COLUMNS})`)
 await db.execute(`CREATE TABLE IF NOT EXISTS ai_generations (${AI_GENERATIONS_COLUMNS})`)
+for (const sql of FTS_STATEMENTS) await db.execute(sql)
 await reseed()
 
 // Imported after env is set and the schema exists.

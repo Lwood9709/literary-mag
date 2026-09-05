@@ -18,6 +18,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { SAMPLE_PIECES } from './sample-pieces.mjs'
+import { toSearchText } from './schema.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const envPath = path.join(__dirname, '..', '.env.local')
@@ -72,8 +73,9 @@ if (undo) {
 
   for (const p of pending) {
     await db.execute({
-      sql: 'INSERT INTO pieces (title, body, type, tags) VALUES (?, ?, ?, ?)',
-      args: [p.title, p.body, p.type, p.tags],
+      sql: `INSERT INTO pieces (title, body, type, tags, search_text)
+            VALUES (?, ?, ?, ?, ?)`,
+      args: [p.title, p.body, p.type, p.tags, toSearchText(p.title, p.body, p.tags)],
     })
   }
   console.log(`\nInserted ${pending.length} piece(s).`)

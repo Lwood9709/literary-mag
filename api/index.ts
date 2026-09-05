@@ -2,6 +2,7 @@ import { Hono, type MiddlewareHandler } from 'hono'
 import { timingSafeEqual } from 'node:crypto'
 import { db, toPiece, type Piece } from './_lib/db.js'
 import { checkRateLimit, logGeneration, generatePiece, GenerationError } from './_lib/generate.js'
+import { toSearchText } from '../scripts/schema.mjs'
 
 // basePath('/api') means routes are declared relative to /api, matching the
 // public URLs. vercel.json rewrites every /api/* request into this function.
@@ -72,30 +73,61 @@ app.get('/pieces', async (c) => {
     args.push(`%${tag}%`)
   }
 
-  const where = conditions.length ? ` WHERE ${conditions.join(' AND ')}` : ''
+  const q = (c.req.query('q') ?? '').trim()
 
-  // Counted with the same WHERE so the page count reflects the active filter,
-  // not the whole table.
-  const { rows: countRows } = await db.execute({
-    sql: `SELECT COUNT(*) AS n FROM pieces${where}`,
-    args,
-  })
-  const total = Number(countRows[0]?.n ?? 0)
+  // With a query, rows come through the FTS index and are ordered by
+  // relevance. Without one, straight off the table, newest first.
+  const from = q
+    ? 'pieces p JOIN pieces_fts f ON p.id = f.rowid'
+    : 'pieces p'
+  if (q) conditions.unshift('pieces_fts MATCH ?')
 
-  const pageSize = positiveInt(c.req.query('pageSize'), DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE)
-  const lastPage = Math.max(1, Math.ceil(total / pageSize))
-  // Clamped rather than 404'd: asking past the end lands on the last page.
-  const page = Math.min(positiveInt(c.req.query('page'), 1, Number.MAX_SAFE_INTEGER), lastPage)
-
+  const scoped = conditions.map((cond) =>
+    cond.startsWith('pieces_fts') ? cond : `p.${cond}`
+  )
+  const where = scoped.length ? ` WHERE ${scoped.join(' AND ')}` : ''
   // `id DESC` is not decoration. published_at has second granularity, so
   // pieces saved in the same second tie, and OFFSET over an unstable sort can
   // skip or repeat rows between pages. The id breaks every tie.
-  const { rows } = await db.execute({
-    sql: `SELECT * FROM pieces${where} ORDER BY published_at DESC, id DESC LIMIT ? OFFSET ?`,
-    args: [...args, pageSize, (page - 1) * pageSize],
-  })
+  const order = q ? 'f.rank' : 'p.published_at DESC, p.id DESC'
 
-  return c.json({ pieces: rows.map(toPiece), total, page, pageSize })
+  const pageSize = positiveInt(c.req.query('pageSize'), DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE)
+  const rawPage = positiveInt(c.req.query('page'), 1, Number.MAX_SAFE_INTEGER)
+
+  async function run(matchTerm: string | null) {
+    const queryArgs = matchTerm === null ? args : [matchTerm, ...args]
+
+    const { rows: countRows } = await db.execute({
+      sql: `SELECT COUNT(*) AS n FROM ${from}${where}`,
+      args: queryArgs,
+    })
+    const total = Number(countRows[0]?.n ?? 0)
+    const lastPage = Math.max(1, Math.ceil(total / pageSize))
+    // Clamped rather than 404'd: asking past the end lands on the last page.
+    const page = Math.min(rawPage, lastPage)
+
+    const { rows } = await db.execute({
+      sql: `SELECT p.* FROM ${from}${where} ORDER BY ${order} LIMIT ? OFFSET ?`,
+      args: [...queryArgs, pageSize, (page - 1) * pageSize],
+    })
+
+    return { pieces: rows.map(toPiece), total, page, pageSize, query: q }
+  }
+
+  if (!q) return c.json(await run(null))
+
+  try {
+    return c.json(await run(q))
+  } catch {
+    // FTS5 rejects malformed queries: an unbalanced quote, a trailing AND,
+    // a bare NEAR. Rather than 400 on a half-typed search box, retry the
+    // whole thing as one quoted phrase, which always parses.
+    try {
+      return c.json(await run(`"${q.replace(/"/g, '')}"`))
+    } catch {
+      return c.json({ error: 'That search could not be parsed' }, 400)
+    }
+  }
 })
 
 app.get('/pieces/:id', async (c) => {
@@ -136,8 +168,9 @@ app.post('/pieces', async (c) => {
   }
 
   const result = await db.execute({
-    sql: 'INSERT INTO pieces (title, body, type, tags, is_ai_generated) VALUES (?, ?, ?, ?, ?)',
-    args: [title, text, type, tags, is_ai_generated ? 1 : 0],
+    sql: `INSERT INTO pieces (title, body, type, tags, is_ai_generated, search_text)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [title, text, type, tags, is_ai_generated ? 1 : 0, toSearchText(title, text, tags)],
   })
 
   const { rows } = await db.execute({
@@ -159,14 +192,26 @@ app.put('/pieces/:id', async (c) => {
   const current = toPiece(existing.rows[0])
   const patch = await c.req.json<Partial<Piece>>()
 
+  // Merged first, then indexed. Deriving search_text from the patch alone
+  // would drop whichever fields this request left out.
+  const merged = {
+    title: patch.title ?? current.title,
+    body: patch.body ?? current.body,
+    type: patch.type ?? current.type,
+    tags: patch.tags ?? current.tags,
+    is_ai_generated: patch.is_ai_generated ?? current.is_ai_generated,
+  }
+
   await db.execute({
-    sql: 'UPDATE pieces SET title = ?, body = ?, type = ?, tags = ?, is_ai_generated = ? WHERE id = ?',
+    sql: `UPDATE pieces SET title = ?, body = ?, type = ?, tags = ?,
+          is_ai_generated = ?, search_text = ? WHERE id = ?`,
     args: [
-      patch.title ?? current.title,
-      patch.body ?? current.body,
-      patch.type ?? current.type,
-      patch.tags ?? current.tags,
-      patch.is_ai_generated ?? current.is_ai_generated,
+      merged.title,
+      merged.body,
+      merged.type,
+      merged.tags,
+      merged.is_ai_generated,
+      toSearchText(merged.title, merged.body, merged.tags),
       id,
     ],
   })

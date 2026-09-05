@@ -11,7 +11,7 @@ import { createClient } from '@libsql/client'
 import { rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { PIECES_COLUMNS, AI_GENERATIONS_COLUMNS } from './schema.mjs'
+import { PIECES_COLUMNS, AI_GENERATIONS_COLUMNS, FTS_STATEMENTS } from './schema.mjs'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DB_FILE = path.join(root, '.smoke-test.db').replace(/\\/g, '/')
@@ -25,6 +25,7 @@ process.env.ADMIN_PASSWORD = PASSWORD
 const setup = createClient({ url: 'file:' + DB_FILE })
 await setup.execute(`CREATE TABLE IF NOT EXISTS pieces (${PIECES_COLUMNS})`)
 await setup.execute(`CREATE TABLE IF NOT EXISTS ai_generations (${AI_GENERATIONS_COLUMNS})`)
+for (const sql of FTS_STATEMENTS) await setup.execute(sql)
 
 // Imported after env is set: api/_lib/db.ts reads process.env at module load.
 const app = (await import('../api/index.js')).default
@@ -124,6 +125,33 @@ check('?type=poem excludes it', r.json?.pieces.length === 0)
 check('total tracks the filter, not the table', r.json?.total === 0)
 r = await call('GET', '/api/pieces?tag=b')
 check('?tag=b finds it', r.json?.pieces.length === 1)
+
+console.log('\nsearch')
+r = await call('GET', '/api/pieces?q=hello')
+check('?q= matches body text', r.json?.pieces.length === 1, JSON.stringify(r.json))
+check('echoes the query back', r.json?.query === 'hello')
+
+r = await call('GET', '/api/pieces?q=Test')
+check('?q= matches the title', r.json?.pieces.length === 1)
+
+r = await call('GET', '/api/pieces?q=zzyzx')
+check('?q= with no match is empty, not an error', r.status === 200 && r.json?.pieces.length === 0)
+
+// The body is <p>hello</p>. If the raw HTML were indexed, "p" would match.
+r = await call('GET', '/api/pieces?q=p')
+check('HTML tag names are not indexed', r.json?.pieces.length === 0, JSON.stringify(r.json))
+
+r = await call('GET', '/api/pieces?q=hello&type=poem')
+check('search composes with ?type=', r.json?.pieces.length === 0)
+r = await call('GET', '/api/pieces?q=hello&type=recipe')
+check('search composes with a matching ?type=', r.json?.pieces.length === 1)
+
+// FTS5 rejects these outright; the route retries them as a quoted phrase
+// rather than handing a 500 to someone mid-keystroke.
+for (const bad of ['"unbalanced', 'trailing AND', 'NEAR', '*', '((']) {
+  r = await call('GET', `/api/pieces?q=${encodeURIComponent(bad)}`)
+  check(`malformed query ${JSON.stringify(bad)} -> 200`, r.status === 200, `got ${r.status}`)
+}
 
 console.log('\nupdate')
 r = await call('PUT', `/api/pieces/${id}`, { body: { title: 'Renamed' } })

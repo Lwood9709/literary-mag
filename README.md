@@ -194,7 +194,7 @@ Base path: `/api/pieces`
 
 | Method | Endpoint | Auth | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/pieces` | public | List pieces, paged. Optional `?type=`, `?tag=`, `?page=`, `?pageSize=`. |
+| `GET` | `/api/pieces` | public | List pieces, paged. Optional `?q=`, `?type=`, `?tag=`, `?page=`, `?pageSize=`. |
 | `GET` | `/api/pieces/:id` | public | Fetch a single piece. |
 | `POST` | `/api/pieces` | password | Create. Body: `{ title, body, type, tags?, is_ai_generated? }`. |
 | `PUT` | `/api/pieces/:id` | password | Update. Omitted fields keep their current value. |
@@ -202,6 +202,33 @@ Base path: `/api/pieces`
 | `POST` | `/api/generate` | password | Draft a piece with Claude. Body: `{ type, mood? }`. Returns `{ title, body }`. `429` past the daily cap. |
 
 `type` is one of `poem`, `prose`, `essay`, `story`, `recipe`, `found`.
+
+### Search
+
+`?q=` runs a full-text query against an SQLite FTS5 index and orders results
+by relevance (`rank`) instead of by date. It composes with `?type=`,
+`?tag=` and `?page=`, and `total` reflects the matches.
+
+FTS5 syntax is passed through, so `"cold water"`, `wint*`, `flour OR onion`
+and `NEAR(onion celery)` all work.
+
+Two decisions worth knowing.
+
+**Bodies are indexed as stripped text, not as HTML.** `body` is TipTap markup,
+so indexing it raw would make a search for "strong" match every bolded piece
+and "p" match everything. A `search_text` column holds title, tags and the
+body with tags removed; `toSearchText` in `scripts/schema.mjs` derives it, and
+the API, seeder, test server and backfill all call the same function.
+
+**The database maintains the index, not the API.** `pieces_fts` is an
+external-content FTS5 table with three triggers on insert, update and delete.
+Had the API owned that, every other writer would have skipped it silently and
+results would drift from the collection with nothing to indicate it.
+
+A malformed query is not an error. FTS5 rejects an unbalanced quote or a
+trailing `AND`, so the route retries the whole string as one quoted phrase
+before giving up with a 400. Half-typed searches are normal, and a 400
+mid-keystroke is not useful.
 
 ### Pagination
 

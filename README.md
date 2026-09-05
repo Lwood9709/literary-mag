@@ -170,22 +170,6 @@ filters. The list lives in `scripts/sample-pieces.mjs` and both directions read 
 undo can never miss a row the seeder added. Re-running the insert skips titles already
 present.
 
-It targets whatever `TURSO_DATABASE_URL` points at, which locally is production. The
-default is a dry run and the target URL is printed every time, so writing takes an
-explicit `--write`.
-
-Each `npm run test:e2e` run regenerates `client/public/tests/results.json` and
-`suite.mp4`, which the `/colophon` page reads to show real, current test results — not a
-hand-maintained list. Commit those two files after a run you want reflected there; they
-are not auto-updated by CI.
-
-> **Windows note:** if Cypress fails with `bad option: --smoke-test` or a Windows DLL
-> error, check for `ELECTRON_RUN_AS_NODE` in your shell (`echo $env:ELECTRON_RUN_AS_NODE`
-> in PowerShell). Some Electron-hosted terminals (VS Code's extension host among them) set
-> it for their own child processes, and it leaks into anything launched from that shell —
-> including Cypress's own Electron binary, which then can't start normally. Clear it
-> (`Remove-Item Env:\ELECTRON_RUN_AS_NODE`) before running Cypress commands.
-
 ---
 
 ## API Reference
@@ -220,16 +204,6 @@ and "p" match everything. A `search_text` column holds title, tags and the
 body with tags removed; `toSearchText` in `scripts/schema.mjs` derives it, and
 the API, seeder, test server and backfill all call the same function.
 
-**The database maintains the index, not the API.** `pieces_fts` is an
-external-content FTS5 table with three triggers on insert, update and delete.
-Had the API owned that, every other writer would have skipped it silently and
-results would drift from the collection with nothing to indicate it.
-
-A malformed query is not an error. FTS5 rejects an unbalanced quote or a
-trailing `AND`, so the route retries the whole string as one quoted phrase
-before giving up with a 400. Half-typed searches are normal, and a 400
-mid-keystroke is not useful.
-
 ### Pagination
 
 `GET /api/pieces` returns an envelope, not a bare array:
@@ -247,15 +221,6 @@ numbers matter more here than the failure mode offset has at scale: rows shiftin
 requests can make a page skip or repeat an entry. With one author and a few dozen pieces
 that does not happen in practice.
 
-Offset does require a total sort order, though. `published_at` is `datetime('now')`, so
-pieces saved in the same second tie, and `OFFSET` over an unstable sort genuinely can
-drop or duplicate rows. `ORDER BY published_at DESC, id DESC` breaks every tie.
-
-The admin sidebar requests `?pageSize=100`, because it is a navigation list rather than a
-feed and every piece should be one click away.
-
-Writes require an `x-admin-password` header matching `ADMIN_PASSWORD`; without it the API
-returns `401`. The comparison is constant-time (`crypto.timingSafeEqual`).
 
 ### Importing poems (PoetryDB)
 
@@ -365,18 +330,4 @@ asynchronous — `better-sqlite3` is synchronous by design.
 - **Schema setup is a script, not startup code.** A serverless function is invoked
   per-request, so running `CREATE TABLE IF NOT EXISTS` on every cold start would be wasted
   work. Schema changes are a deploy-time concern.
-- **`dangerouslySetInnerHTML`** renders piece bodies, which are HTML from the TipTap
-  editor. Safe because only the password-holder can write; if submissions were ever opened
-  up, that HTML would need sanitising first.
-- **Auth is a single shared password**, not user accounts — appropriate for a
-  single-author site. There are no sessions and no rate limiting on the password check.
-- **Stale-response guarding.** Fetches in `Home.tsx` and `PiecePage.tsx` use an `ignore`
-  flag in the Effect cleanup so a slow earlier request cannot overwrite newer data.
-- **Every file directly under `api/` becomes its own Vercel Function** — a zero-config
-  convention independent of any custom `vercel.json` rewrite. `db.ts` and `generate.ts` are
-  shared helper modules, not routes, so they live in `api/_lib/` (underscore-prefixed
-  directories are excluded from auto-routing). Putting a helper directly in `api/` builds
-  fine but crashes at request time — `generate.ts` briefly lived there and broke
-  `POST /api/generate` in production with *"Invalid export found in module... The default
-  export must be a function or server"*, since Vercel tried to invoke it directly instead
-  of routing through `index.ts`.
+

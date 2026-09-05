@@ -13,7 +13,14 @@ export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const activeType = searchParams.get('type') ?? ''
+  const activeTag = searchParams.get('tag') ?? ''
+  const query = searchParams.get('q') ?? ''
   const requestedPage = Math.max(1, Number(searchParams.get('page')) || 1)
+
+  // Kept separate from the URL so typing does not refetch on every keystroke.
+  // The URL moves on submit, which also keeps browser history usable.
+  const [draftQuery, setDraftQuery] = useState(query)
+  useEffect(() => { setDraftQuery(query) }, [query])
 
   useEffect(() => {
     let ignore = false
@@ -22,6 +29,8 @@ export default function Home() {
 
     const params = new URLSearchParams()
     if (activeType) params.set('type', activeType)
+    if (activeTag) params.set('tag', activeTag)
+    if (query) params.set('q', query)
     params.set('page', String(requestedPage))
 
     fetch(`/api/pieces?${params}`)
@@ -44,25 +53,24 @@ export default function Home() {
       .finally(() => { if (!ignore) setLoading(false) })
 
     return () => { ignore = true }
-  }, [activeType, requestedPage])
+  }, [activeType, activeTag, query, requestedPage])
 
   const lastPage = Math.max(1, Math.ceil(total / pageSize))
   const page = Math.min(requestedPage, lastPage)
+  const filtering = Boolean(activeType || activeTag || query)
 
-  function setFilter(type: string) {
-    // Dropping every param also drops ?page, so changing the filter always
-    // lands on page 1. Staying on page 4 of a filter with two pages would
-    // render an empty list.
-    if (type === activeType) setSearchParams({})
-    else setSearchParams({ type })
-  }
-
-  function goToPage(next: number) {
+  /**
+   * Every navigation rebuilds the whole param set rather than editing it in
+   * place, so page is dropped unless a caller asks to keep it. Landing on
+   * page 4 of a filter with two pages would render an empty list.
+   */
+  function navigate(next: { type?: string; tag?: string; q?: string; page?: number }) {
     const params = new URLSearchParams()
-    if (activeType) params.set('type', activeType)
-    if (next > 1) params.set('page', String(next))
+    if (next.type) params.set('type', next.type)
+    if (next.tag) params.set('tag', next.tag)
+    if (next.q) params.set('q', next.q)
+    if (next.page && next.page > 1) params.set('page', String(next.page))
     setSearchParams(params)
-    window.scrollTo({ top: 0 })
   }
 
   return (
@@ -76,11 +84,37 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="flex gap-2 mb-10 flex-wrap">
+      <form
+        role="search"
+        onSubmit={(e) => {
+          e.preventDefault()
+          navigate({ type: activeType, tag: activeTag, q: draftQuery.trim() })
+        }}
+        className="flex items-center gap-2 mb-6"
+      >
+        <input
+          type="search"
+          value={draftQuery}
+          onChange={(e) => setDraftQuery(e.target.value)}
+          placeholder="Search the collection"
+          aria-label="Search the collection"
+          className="flex-1 text-sm border-b border-sage/30 py-2 outline-none focus:border-sage bg-transparent placeholder:text-muted/60"
+        />
+        <button
+          type="submit"
+          className="px-4 py-1.5 rounded-full text-xs tracking-wide border border-sage/40 text-forest-soft hover:bg-sage-light hover:border-sage transition-colors"
+        >
+          Search
+        </button>
+      </form>
+
+      <div className="flex gap-2 mb-6 flex-wrap">
         {TYPES.map((t) => (
           <button
             key={t}
-            onClick={() => setFilter(t)}
+            onClick={() =>
+              navigate({ type: t === activeType ? '' : t, tag: activeTag, q: query })
+            }
             className={`px-4 py-1.5 rounded-full text-xs tracking-wide transition-colors border ${
               activeType === t
                 ? 'bg-sage text-white border-sage'
@@ -92,6 +126,23 @@ export default function Home() {
         ))}
       </div>
 
+      {filtering && !loading && !failed && (
+        <p className="text-xs text-muted mb-8 flex items-center gap-2 flex-wrap">
+          <span>
+            {total} {total === 1 ? 'piece' : 'pieces'}
+            {query && <> matching "{query}"</>}
+            {activeTag && <> tagged "{activeTag}"</>}
+            {activeType && <> in {activeType}</>}
+          </span>
+          <button
+            onClick={() => navigate({})}
+            className="text-sage hover:text-sage-dark underline underline-offset-2"
+          >
+            clear
+          </button>
+        </p>
+      )}
+
       {loading && <p className="text-muted text-sm">Loading…</p>}
 
       {!loading && failed && (
@@ -102,10 +153,16 @@ export default function Home() {
 
       {!loading && !failed && pieces.length === 0 && (
         <p className="text-muted text-sm">
-          No pieces yet.{' '}
-          <Link to="/admin" className="text-sage underline underline-offset-2">
-            Add one.
-          </Link>
+          {filtering ? (
+            <>Nothing here matches. Try a different word.</>
+          ) : (
+            <>
+              No pieces yet.{' '}
+              <Link to="/admin" className="text-sage underline underline-offset-2">
+                Add one.
+              </Link>
+            </>
+          )}
         </p>
       )}
 
@@ -128,14 +185,22 @@ export default function Home() {
             </div>
             {p.tags && (
               <div className="flex gap-1.5 mt-3 flex-wrap">
-                {p.tags.split(',').filter(Boolean).map((tag) => (
-                  <span
-                    key={tag.trim()}
-                    className="text-xs text-sage-dark bg-sage-light px-2 py-0.5 rounded-full"
-                  >
-                    {tag.trim()}
-                  </span>
-                ))}
+                {p.tags.split(',').filter(Boolean).map((raw) => {
+                  const tag = raw.trim()
+                  return (
+                    <button
+                      key={tag}
+                      onClick={() => navigate({ tag })}
+                      className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
+                        activeTag.toLowerCase() === tag.toLowerCase()
+                          ? 'bg-sage text-white'
+                          : 'text-sage-dark bg-sage-light hover:bg-sage hover:text-white'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </li>
@@ -145,7 +210,7 @@ export default function Home() {
       {!loading && !failed && lastPage > 1 && (
         <nav aria-label="Pagination" className="mt-10 flex items-center justify-between">
           <button
-            onClick={() => goToPage(page - 1)}
+            onClick={() => navigate({ type: activeType, tag: activeTag, q: query, page: page - 1 })}
             disabled={page <= 1}
             className="text-sm text-sage hover:text-sage-dark disabled:text-muted/40 disabled:cursor-default"
           >
@@ -155,7 +220,7 @@ export default function Home() {
             Page {page} of {lastPage}
           </span>
           <button
-            onClick={() => goToPage(page + 1)}
+            onClick={() => navigate({ type: activeType, tag: activeTag, q: query, page: page + 1 })}
             disabled={page >= lastPage}
             className="text-sm text-sage hover:text-sage-dark disabled:text-muted/40 disabled:cursor-default"
           >

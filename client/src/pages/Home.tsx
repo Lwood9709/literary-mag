@@ -98,7 +98,7 @@ export default function Home() {
           onChange={(e) => setDraftQuery(e.target.value)}
           placeholder="Search the collection"
           aria-label="Search the collection"
-          className="flex-1 text-sm border-b border-sage/30 py-2 outline-none focus:border-sage bg-transparent placeholder:text-muted/60"
+          className="flex-1 text-sm border-b border-sage/30 py-2 outline-none focus:border-sage bg-transparent placeholder:text-muted/50"
         />
         <button
           type="submit"

@@ -45,14 +45,18 @@ export default function PiecePage() {
 
       {piece.tags && (
         <div className="flex gap-1.5 mb-10 flex-wrap">
-          {piece.tags.split(',').filter(Boolean).map((tag) => (
-            <span
-              key={tag.trim()}
-              className="text-xs text-sage-dark bg-sage-light px-2 py-0.5 rounded-full"
-            >
-              {tag.trim()}
-            </span>
-          ))}
+          {piece.tags.split(',').filter(Boolean).map((raw) => {
+            const tag = raw.trim()
+            return (
+              <Link
+                key={tag}
+                to={`/?tag=${encodeURIComponent(tag)}`}
+                className="text-xs text-sage-dark bg-sage-light px-2 py-0.5 rounded-full hover:bg-sage hover:text-white transition-colors"
+              >
+                {tag}
+              </Link>
+            )
+          })}
         </div>
       )}
 

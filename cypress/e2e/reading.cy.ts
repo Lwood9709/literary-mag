@@ -29,6 +29,11 @@ describe('reading the magazine', () => {
     cy.url().should('include', '/piece/')
     cy.contains('h1', 'The Quiet Hour')
     cy.contains('Light moves slowly across the floor.')
+
+    // index.html ships one static title; the piece page has to set its own.
+    cy.title().should('eq', 'The Quiet Hour · Literary Mag')
+    cy.go('back')
+    cy.title().should('eq', 'Literary Mag')
   })
 
   it('shows attribution on a found piece', () => {

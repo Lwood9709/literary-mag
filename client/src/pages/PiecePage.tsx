@@ -21,6 +21,16 @@ export default function PiecePage() {
     return () => { ignore = true }
   }, [id, navigate])
 
+  // index.html sets one static title, so without this every open piece shares
+  // a tab. The cleanup restores it, otherwise navigating back to the list
+  // leaves the tab named after whatever you read last.
+  useEffect(() => {
+    if (!piece) return
+    const previous = document.title
+    document.title = `${piece.title} · Literary Mag`
+    return () => { document.title = previous }
+  }, [piece])
+
   if (loading)
     return <div className="max-w-2xl mx-auto px-6 py-16 text-muted text-sm">Loading…</div>
   if (!piece) return null
